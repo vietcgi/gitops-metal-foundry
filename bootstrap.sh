@@ -215,7 +215,7 @@ phase2_free_tier() {
         DEFAULT_REGION="us-ashburn-1"
     fi
 
-    read -r -p "Enter region [$DEFAULT_REGION]: " OCI_REGION
+    read -r -p "Enter region [$DEFAULT_REGION]: " OCI_REGION < /dev/tty
     OCI_REGION="${OCI_REGION:-$DEFAULT_REGION}"
 
     log_info "Selected region: $OCI_REGION"
@@ -252,7 +252,7 @@ phase2_free_tier() {
     log_warn "It will NEVER fall back to paid resources."
     echo ""
 
-    read -r -p "Continue? (y/n): " confirm
+    read -r -p "Continue? (y/n): " confirm < /dev/tty
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         log_info "Cancelled."
         exit 0
@@ -287,7 +287,7 @@ phase3_configure() {
     log_info "You should fork https://github.com/YOUR_USER/gitops-metal-foundry first."
     echo ""
 
-    read -r -p "Enter your GitHub repo URL (e.g., https://github.com/YOUR_USER/gitops-metal-foundry): " GITHUB_REPO_URL
+    read -r -p "Enter your GitHub repo URL (e.g., https://github.com/YOUR_USER/gitops-metal-foundry): " GITHUB_REPO_URL < /dev/tty
 
     if [[ -z "$GITHUB_REPO_URL" ]]; then
         log_warn "No GitHub repo provided. GitOps setup will be skipped."
@@ -308,7 +308,7 @@ phase3_configure() {
     log_info "Create a reusable, ephemeral key."
     echo ""
 
-    read -r -p "Enter Tailscale auth key (or press Enter to skip): " TAILSCALE_AUTH_KEY
+    read -r -p "Enter Tailscale auth key (or press Enter to skip): " TAILSCALE_AUTH_KEY < /dev/tty
 
     if [[ -z "$TAILSCALE_AUTH_KEY" ]]; then
         log_warn "No Tailscale key provided. VPN setup will be skipped."
@@ -320,7 +320,7 @@ phase3_configure() {
     # Get domain for TLS
     echo ""
     log_info "For TLS certificates, you need a domain name."
-    read -r -p "Enter your domain (e.g., metal.example.com) or press Enter to skip: " DOMAIN
+    read -r -p "Enter your domain (e.g., metal.example.com) or press Enter to skip: " DOMAIN < /dev/tty
 
     if [[ -z "$DOMAIN" ]]; then
         log_warn "No domain provided. TLS setup will be skipped."
@@ -424,7 +424,7 @@ phase4_terraform() {
     echo -e "  ${GREEN}Estimated cost: \$0.00/month${NC}"
     echo ""
 
-    read -r -p "Apply this plan? (y/n): " confirm
+    read -r -p "Apply this plan? (y/n): " confirm < /dev/tty
     if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
         log_info "Cancelled. You can run 'terraform apply' manually later."
         exit 0
@@ -637,7 +637,7 @@ phase8_flux() {
     log_info "Create one at: https://github.com/settings/tokens"
     echo ""
 
-    read -r -p "Enter GitHub personal access token (or press Enter to skip): " GITHUB_TOKEN
+    read -r -p "Enter GitHub personal access token (or press Enter to skip): " GITHUB_TOKEN < /dev/tty
 
     if [[ -z "$GITHUB_TOKEN" ]]; then
         log_warn "Flux bootstrap skipped. Run manually later:"

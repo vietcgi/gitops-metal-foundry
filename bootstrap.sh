@@ -363,11 +363,12 @@ phase3_configure() {
     fi
 
     # Generate SSH key if needed
-    if [[ ! -f ~/.ssh/id_ed25519.pub ]]; then
+    # Use RSA for FIPS compliance (OCI Cloud Shell)
+    if [[ ! -f ~/.ssh/id_rsa.pub ]]; then
         log_info "Generating SSH key..."
-        ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N "" -C "metal-foundry"
+        ssh-keygen -t rsa -b 4096 -f ~/.ssh/id_rsa -N "" -C "metal-foundry"
     fi
-    SSH_PUBLIC_KEY=$(cat ~/.ssh/id_ed25519.pub)
+    SSH_PUBLIC_KEY=$(cat ~/.ssh/id_rsa.pub)
 
     # Write Terraform variables
     log_info "Writing Terraform configuration..."

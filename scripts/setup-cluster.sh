@@ -15,6 +15,10 @@
 #
 set -euo pipefail
 
+# Ensure HOME is set for cloud-init environments (Cilium CLI requires it)
+export HOME="${HOME:-/root}"
+export XDG_CACHE_HOME="${XDG_CACHE_HOME:-$HOME/.cache}"
+
 #=============================================================================
 # Configuration
 #=============================================================================

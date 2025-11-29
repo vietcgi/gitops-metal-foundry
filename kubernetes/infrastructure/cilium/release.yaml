@@ -47,7 +47,9 @@ spec:
         capabilities:
           keepCapNetBindService: true
           envoy:
+            # NET_BIND_SERVICE: Required to bind to privileged ports (80/443) on the host
             - NET_BIND_SERVICE
+            # NET_ADMIN & SYS_ADMIN: Required for Cilium datapath integration and transparent proxying
             - NET_ADMIN
             - SYS_ADMIN
 

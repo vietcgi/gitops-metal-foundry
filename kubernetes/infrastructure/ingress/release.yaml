@@ -1,39 +1,23 @@
 ---
-# Cilium Ingress Controller Configuration
-# This enables Cilium's native ingress support instead of nginx-ingress
-# to reduce resource usage on free tier
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: cilium-ingress-config
-  namespace: kube-system
-data:
-  # Cilium ingress is enabled via helm values during installation
-  # This configmap is for documentation and future configuration
-  ingress-controller-enabled: "true"
-  ingress-controller-loadbalancer-mode: "dedicated"
+# Gateway API CRDs are installed via kustomization.yaml in gateway-api-crds/
+# They are required for Cilium Gateway API support
 ---
-# Gateway API support (optional, for future use)
-# Cilium supports Gateway API as an alternative to Ingress
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ingress-system
-  labels:
-    name: ingress-system
----
-# Default ingress class for Cilium
+# Default ingress class for Cilium (backwards compatibility)
 apiVersion: networking.k8s.io/v1
 kind: IngressClass
 metadata:
   name: cilium
   annotations:
     ingressclass.kubernetes.io/is-default-class: "true"
+    meta.helm.sh/release-name: cilium
+    meta.helm.sh/release-namespace: kube-system
+  labels:
+    app.kubernetes.io/managed-by: Helm
 spec:
   controller: cilium.io/ingress-controller
 ---
 # Cilium L2 Announcement Policy
-# Enables L2 (ARP) announcements for LoadBalancer IPs
+# Enables L2 (ARP) announcements for LoadBalancer IPs on bare metal
 apiVersion: cilium.io/v2alpha1
 kind: CiliumL2AnnouncementPolicy
 metadata:

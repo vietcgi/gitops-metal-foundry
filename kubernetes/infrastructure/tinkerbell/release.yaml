@@ -87,56 +87,78 @@ spec:
         service:
           type: ClusterIP
 ---
-# Ingress for Tinkerbell HTTP endpoints (iPXE boot)
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+# Certificate for TLS termination (must exist before Gateway)
+apiVersion: cert-manager.io/v1
+kind: Certificate
 metadata:
-  name: tinkerbell
+  name: tinkerbell-tls
   namespace: tinkerbell
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    ingress.cilium.io/loadbalancer-mode: shared
 spec:
-  ingressClassName: cilium
-  rules:
-    - host: tinkerbell.qualityspace.com
-      http:
-        paths:
-          - path: /
-            pathType: Prefix
-            backend:
-              service:
-                name: tinkerbell
-                port:
-                  number: 7171
-  tls:
-    - hosts:
-        - tinkerbell.qualityspace.com
-      secretName: tinkerbell-tls
+  secretName: tinkerbell-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - tinkerbell.qualityspace.com
 ---
-# Ingress for HookOS artifacts
-apiVersion: networking.k8s.io/v1
-kind: Ingress
+# Gateway API - Cilium Gateway for HTTP/HTTPS traffic
+# Uses hostNetwork to bind directly to ports 80 and 443
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
 metadata:
-  name: hookos
+  name: tinkerbell-gateway
   namespace: tinkerbell
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    ingress.cilium.io/loadbalancer-mode: shared
+    io.cilium/host-network: "true"
 spec:
-  ingressClassName: cilium
+  gatewayClassName: cilium
+  listeners:
+    - name: http
+      protocol: HTTP
+      port: 80
+      hostname: tinkerbell.qualityspace.com
+      allowedRoutes:
+        namespaces:
+          from: Same
+    - name: https
+      protocol: HTTPS
+      port: 443
+      hostname: tinkerbell.qualityspace.com
+      allowedRoutes:
+        namespaces:
+          from: Same
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - kind: Secret
+            name: tinkerbell-tls
+            namespace: tinkerbell
+---
+# HTTPRoute for Tinkerbell services
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: tinkerbell-route
+  namespace: tinkerbell
+spec:
+  parentRefs:
+    - name: tinkerbell-gateway
+  hostnames:
+    - tinkerbell.qualityspace.com
   rules:
-    - host: tinkerbell.qualityspace.com
-      http:
-        paths:
-          - path: /hook
-            pathType: Prefix
-            backend:
-              service:
-                name: hookos
-                port:
-                  number: 7173
-  tls:
-    - hosts:
-        - tinkerbell.qualityspace.com
-      secretName: tinkerbell-tls
+    # HookOS artifacts at /hook path
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /hook
+      backendRefs:
+        - name: hookos
+          port: 7173
+    # Tinkerbell API at root path
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: tinkerbell
+          port: 7171

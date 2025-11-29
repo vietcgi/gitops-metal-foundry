@@ -36,7 +36,7 @@ spec:
           ingress:
             ingressClassName: cilium
 ---
-# Let's Encrypt PRODUCTION
+# Let's Encrypt PRODUCTION (HTTP-01 for single-domain certs)
 apiVersion: cert-manager.io/v1
 kind: ClusterIssuer
 metadata:

@@ -1,0 +1,25 @@
+---
+# Namespace for shared ingress resources
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ingress
+---
+# Shared Gateway for all services
+# Each service adds its own Certificate and HTTPS listener
+# HTTP listener handles ACME HTTP-01 challenges automatically
+apiVersion: gateway.networking.k8s.io/v1
+kind: Gateway
+metadata:
+  name: main-gateway
+  namespace: ingress
+spec:
+  gatewayClassName: cilium
+  listeners:
+    # HTTP listener - for ACME HTTP-01 challenges and plain HTTP
+    - name: http
+      protocol: HTTP
+      port: 80
+      allowedRoutes:
+        namespaces:
+          from: All

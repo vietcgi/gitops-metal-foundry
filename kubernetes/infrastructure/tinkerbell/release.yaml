@@ -87,52 +87,8 @@ spec:
         service:
           type: ClusterIP
 ---
-# Certificate for TLS termination (must exist before Gateway)
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: tinkerbell-tls
-  namespace: tinkerbell
-spec:
-  secretName: tinkerbell-tls
-  issuerRef:
-    name: letsencrypt-prod
-    kind: ClusterIssuer
-  dnsNames:
-    - tinkerbell.qualityspace.com
----
-# Gateway API - Cilium Gateway for HTTP/HTTPS traffic
-# Uses LoadBalancer mode with IP from CiliumLoadBalancerIPPool (lb-pool)
-apiVersion: gateway.networking.k8s.io/v1
-kind: Gateway
-metadata:
-  name: tinkerbell-gateway
-  namespace: tinkerbell
-spec:
-  gatewayClassName: cilium
-  listeners:
-    - name: http
-      protocol: HTTP
-      port: 80
-      hostname: tinkerbell.qualityspace.com
-      allowedRoutes:
-        namespaces:
-          from: Same
-    - name: https
-      protocol: HTTPS
-      port: 443
-      hostname: tinkerbell.qualityspace.com
-      allowedRoutes:
-        namespaces:
-          from: Same
-      tls:
-        mode: Terminate
-        certificateRefs:
-          - kind: Secret
-            name: tinkerbell-tls
-            namespace: tinkerbell
----
 # HTTPRoute for Tinkerbell services
+# References the shared main-gateway in the ingress namespace
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -140,7 +96,8 @@ metadata:
   namespace: tinkerbell
 spec:
   parentRefs:
-    - name: tinkerbell-gateway
+    - name: main-gateway
+      namespace: ingress
   hostnames:
     - tinkerbell.qualityspace.com
   rules:

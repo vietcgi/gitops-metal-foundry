@@ -337,6 +337,13 @@ fi
 
 # Create GatewayClass for Cilium Gateway API
 # This is required for Cilium to process Gateway resources
+# Wait for Gateway API CRDs to be available (installed by Cilium with gatewayAPI.enabled=true)
+log "Waiting for Gateway API CRDs to be available..."
+until kubectl get crd gatewayclasses.gateway.networking.k8s.io &>/dev/null; do
+    sleep 2
+done
+log "Gateway API CRDs are ready"
+
 log "Creating Cilium GatewayClass..."
 cat <<EOF | kubectl apply -f -
 apiVersion: gateway.networking.k8s.io/v1

@@ -61,6 +61,6 @@ metadata:
   namespace: flux-system
 spec:
   interval: 1h
-  url: oci://ghcr.io/tinkerbell/charts/stack
+  url: oci://ghcr.io/tinkerbell/charts/tinkerbell
   ref:
-    tag: "0.4.4"
+    tag: "v0.19.1"

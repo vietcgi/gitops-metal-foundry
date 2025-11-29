@@ -1,13 +1,12 @@
 # Terraform CI/CD Pipeline
 #
-# This workflow runs on infrastructure changes and applies them via Terraform.
-# Uses OIDC for passwordless authentication to Oracle Cloud - NO STATIC SECRETS.
+# Uses GitHub OIDC → OCI Workload Identity Federation (NO STATIC SECRETS)
 #
-# How OIDC works:
-# 1. GitHub Actions requests a JWT from GitHub's OIDC provider
-# 2. The JWT contains claims about the repo, branch, and workflow
-# 3. OCI validates the JWT and grants temporary credentials
-# 4. Terraform uses these credentials to manage infrastructure
+# How it works:
+# 1. GitHub Actions requests OIDC token from GitHub
+# 2. OCI validates the token against the configured Identity Provider
+# 3. OCI grants temporary session credentials
+# 4. Terraform uses these credentials
 #
 
 name: Terraform
@@ -28,19 +27,15 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write   # Required for OIDC token request
+  id-token: write  # Required for OIDC
   contents: read
   pull-requests: write
 
 env:
-  TF_VERSION: '1.10.0'  # Nov 2025 - matches versions.tf
+  TF_VERSION: '1.5.7'
   TF_WORKING_DIR: 'terraform'
-  # OCI configuration - only non-sensitive values
-  OCI_CLI_TENANCY: ${{ vars.OCI_TENANCY }}
-  OCI_CLI_REGION: ${{ vars.OCI_REGION }}
 
 jobs:
-  # Validate Terraform configuration (no OCI auth needed)
   validate:
     name: Validate
     runs-on: ubuntu-latest
@@ -65,7 +60,6 @@ jobs:
         run: terraform validate
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-  # Plan changes on PRs
   plan:
     name: Plan
     runs-on: ubuntu-latest
@@ -80,35 +74,19 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      # Get OIDC token from GitHub and exchange for OCI credentials
-      - name: Get GitHub OIDC Token
-        id: github-oidc
-        run: |
-          OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=oci" \
-            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            -H "Accept: application/json" | jq -r '.value')
-          echo "::add-mask::${OIDC_TOKEN}"
-          echo "token=${OIDC_TOKEN}" >> $GITHUB_OUTPUT
+      - name: Setup OCI CLI
+        uses: oracle-actions/run-oci-cli-command@v1.3.2
+        with:
+          command: 'oci --version'
 
-      # Configure OCI CLI with OIDC token
-      - name: Configure OCI Credentials (OIDC)
-        run: |
-          mkdir -p ~/.oci
-          cat > ~/.oci/config << EOF
-          [DEFAULT]
-          tenancy=${{ vars.OCI_TENANCY }}
-          region=${{ vars.OCI_REGION }}
-          security_token_file=~/.oci/token
-          EOF
-          echo "${{ steps.github-oidc.outputs.token }}" > ~/.oci/token
+      - name: Authenticate to OCI (OIDC)
+        uses: oracle-actions/login-oci@v1.0.0
+        with:
+          auth_type: workload_identity
 
       - name: Terraform Init
         run: terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          TF_VAR_tenancy_ocid: ${{ vars.OCI_TENANCY }}
-          TF_VAR_compartment_ocid: ${{ vars.OCI_COMPARTMENT }}
-          TF_VAR_region: ${{ vars.OCI_REGION }}
 
       - name: Terraform Plan
         id: plan
@@ -118,10 +96,6 @@ jobs:
           head -c 60000 plan.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
         working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          TF_VAR_tenancy_ocid: ${{ vars.OCI_TENANCY }}
-          TF_VAR_compartment_ocid: ${{ vars.OCI_COMPARTMENT }}
-          TF_VAR_region: ${{ vars.OCI_REGION }}
 
       - name: Comment Plan on PR
         uses: actions/github-script@v7
@@ -148,7 +122,6 @@ jobs:
               body: output
             })
 
-  # Apply changes on main branch
   apply:
     name: Apply
     runs-on: ubuntu-latest
@@ -164,43 +137,23 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      # Get OIDC token from GitHub and exchange for OCI credentials
-      - name: Get GitHub OIDC Token
-        id: github-oidc
-        run: |
-          OIDC_TOKEN=$(curl -sLS "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=oci" \
-            -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-            -H "Accept: application/json" | jq -r '.value')
-          echo "::add-mask::${OIDC_TOKEN}"
-          echo "token=${OIDC_TOKEN}" >> $GITHUB_OUTPUT
+      - name: Setup OCI CLI
+        uses: oracle-actions/run-oci-cli-command@v1.3.2
+        with:
+          command: 'oci --version'
 
-      # Configure OCI CLI with OIDC token
-      - name: Configure OCI Credentials (OIDC)
-        run: |
-          mkdir -p ~/.oci
-          cat > ~/.oci/config << EOF
-          [DEFAULT]
-          tenancy=${{ vars.OCI_TENANCY }}
-          region=${{ vars.OCI_REGION }}
-          security_token_file=~/.oci/token
-          EOF
-          echo "${{ steps.github-oidc.outputs.token }}" > ~/.oci/token
+      - name: Authenticate to OCI (OIDC)
+        uses: oracle-actions/login-oci@v1.0.0
+        with:
+          auth_type: workload_identity
 
       - name: Terraform Init
         run: terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          TF_VAR_tenancy_ocid: ${{ vars.OCI_TENANCY }}
-          TF_VAR_compartment_ocid: ${{ vars.OCI_COMPARTMENT }}
-          TF_VAR_region: ${{ vars.OCI_REGION }}
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
         working-directory: ${{ env.TF_WORKING_DIR }}
-        env:
-          TF_VAR_tenancy_ocid: ${{ vars.OCI_TENANCY }}
-          TF_VAR_compartment_ocid: ${{ vars.OCI_COMPARTMENT }}
-          TF_VAR_region: ${{ vars.OCI_REGION }}
 
       - name: Show Outputs
         run: terraform output

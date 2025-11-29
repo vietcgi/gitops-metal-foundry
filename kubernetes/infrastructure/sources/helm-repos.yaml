@@ -53,14 +53,13 @@ spec:
   interval: 1h
   url: https://pkgs.tailscale.com/helmcharts
 ---
-# Tinkerbell OCI Repository for bare metal provisioning
-apiVersion: source.toolkit.fluxcd.io/v1beta2
-kind: OCIRepository
+# Tinkerbell Helm Repository (OCI-based)
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
 metadata:
   name: tinkerbell
   namespace: flux-system
 spec:
   interval: 1h
-  url: oci://ghcr.io/tinkerbell/charts/tinkerbell
-  ref:
-    tag: "v0.19.1"
+  type: oci
+  url: oci://ghcr.io/tinkerbell/charts

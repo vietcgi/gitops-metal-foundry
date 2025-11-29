@@ -27,7 +27,7 @@ spec:
       chart: tinkerbell
       version: "v0.19.1"
       sourceRef:
-        kind: OCIRepository
+        kind: HelmRepository
         name: tinkerbell
         namespace: flux-system
   values:

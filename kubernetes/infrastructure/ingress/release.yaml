@@ -31,3 +31,17 @@ metadata:
     ingressclass.kubernetes.io/is-default-class: "true"
 spec:
   controller: cilium.io/ingress-controller
+---
+# Cilium L2 Announcement Policy
+# Enables L2 (ARP) announcements for LoadBalancer IPs
+apiVersion: cilium.io/v2alpha1
+kind: CiliumL2AnnouncementPolicy
+metadata:
+  name: default
+spec:
+  interfaces:
+    - ^enp.*
+    - ^eth.*
+    - ^ens.*
+  externalIPs: true
+  loadBalancerIPs: true

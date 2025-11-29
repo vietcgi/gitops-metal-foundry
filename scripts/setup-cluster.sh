@@ -125,6 +125,29 @@ log "Waiting for Cilium to be ready..."
 cilium status --wait --wait-duration 5m || true
 log "Cilium is ready"
 
+# Configure Cilium L2 LoadBalancer IP Pool
+log "Configuring Cilium L2 LoadBalancer..."
+PUBLIC_IP=$(curl -s --connect-timeout 5 http://169.254.169.254/opc/v1/vnics/ 2>/dev/null | jq -r '.[0].publicIp // empty' || echo "")
+if [ -z "$PUBLIC_IP" ]; then
+    PUBLIC_IP=$(curl -s --connect-timeout 5 ifconfig.me 2>/dev/null || echo "")
+fi
+
+if [ -n "$PUBLIC_IP" ]; then
+    log "Creating CiliumLoadBalancerIPPool with IP: $PUBLIC_IP"
+    cat <<EOF | kubectl apply -f -
+apiVersion: cilium.io/v2alpha1
+kind: CiliumLoadBalancerIPPool
+metadata:
+  name: public-pool
+spec:
+  blocks:
+    - start: "$PUBLIC_IP"
+      stop: "$PUBLIC_IP"
+EOF
+else
+    log "WARNING: Could not determine public IP for LoadBalancer pool"
+fi
+
 #-----------------------------------------------------------------------------
 # Step 4: Install Flux
 #-----------------------------------------------------------------------------

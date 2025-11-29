@@ -74,10 +74,10 @@ module "control_plane" {
   nsg_ids             = [module.vcn.control_plane_nsg_id]
 
   # Instance configuration
-  shape        = var.control_plane_shape
-  ocpus        = local.is_arm ? var.control_plane_ocpus : null
-  memory_gb    = local.is_arm ? var.control_plane_memory_gb : null
-  image_id     = data.oci_core_images.ubuntu.images[0].id
+  shape          = var.control_plane_shape
+  ocpus          = local.is_arm ? var.control_plane_ocpus : null
+  memory_gb      = local.is_arm ? var.control_plane_memory_gb : null
+  image_id       = data.oci_core_images.ubuntu.images[0].id
   ssh_public_key = var.ssh_public_key
 
   # Boot volume
@@ -103,7 +103,7 @@ module "object_storage" {
 }
 
 #=============================================================================
-# IAM Module - For GitHub OIDC
+# IAM Module - Optional policies
 #=============================================================================
 
 module "iam" {
@@ -112,7 +112,6 @@ module "iam" {
   tenancy_id     = var.tenancy_ocid
   compartment_id = var.compartment_ocid
   project_name   = var.project_name
-  github_owner   = var.github_owner
-  github_repo    = var.github_repo
+  create_policy  = false # Not needed - using API key auth from GitHub Actions
   tags           = local.common_tags
 }

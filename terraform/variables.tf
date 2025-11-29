@@ -40,7 +40,7 @@ variable "project_name" {
 variable "control_plane_shape" {
   description = "Control plane VM shape - MUST be Always Free"
   type        = string
-  default     = "VM.Standard.A1.Flex"  # ARM - 4 CPU + 24GB FREE
+  default     = "VM.Standard.A1.Flex" # ARM - 4 CPU + 24GB FREE
 
   validation {
     condition = contains([
@@ -54,7 +54,7 @@ variable "control_plane_shape" {
 variable "control_plane_ocpus" {
   description = "OCPUs for A1.Flex shape (ignored for E2.1.Micro)"
   type        = number
-  default     = 4  # Max free tier
+  default     = 4 # Max free tier
 
   validation {
     condition     = var.control_plane_ocpus >= 1 && var.control_plane_ocpus <= 4
@@ -65,7 +65,7 @@ variable "control_plane_ocpus" {
 variable "control_plane_memory_gb" {
   description = "Memory in GB for A1.Flex shape (ignored for E2.1.Micro)"
   type        = number
-  default     = 24  # Max free tier
+  default     = 24 # Max free tier
 
   validation {
     condition     = var.control_plane_memory_gb >= 1 && var.control_plane_memory_gb <= 24

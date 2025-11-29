@@ -1,12 +1,10 @@
 # Terraform CI/CD Pipeline
 #
-# Uses GitHub OIDC → OCI Workload Identity Federation (NO STATIC SECRETS)
+# Uses OCI API Key authentication (secrets set by bootstrap.sh via gh CLI)
 #
-# How it works:
-# 1. GitHub Actions requests OIDC token from GitHub
-# 2. OCI validates the token against the configured Identity Provider
-# 3. OCI grants temporary session credentials
-# 4. Terraform uses these credentials
+# Workflow:
+#   - PR: terraform plan (comment on PR)
+#   - Merge to main: terraform apply
 #
 
 name: Terraform
@@ -27,13 +25,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write  # Required for OIDC
   contents: read
   pull-requests: write
 
 env:
   TF_VERSION: '1.5.7'
   TF_WORKING_DIR: 'terraform'
+  # OCI CLI environment variables (from GitHub Secrets)
+  OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
+  OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
+  OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
+  OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
+  OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
 
 jobs:
   validate:
@@ -78,11 +81,6 @@ jobs:
         uses: oracle-actions/run-oci-cli-command@v1.3.2
         with:
           command: 'oci --version'
-
-      - name: Authenticate to OCI (OIDC)
-        uses: oracle-actions/login-oci@v1.0.0
-        with:
-          auth_type: workload_identity
 
       - name: Terraform Init
         run: terraform init
@@ -141,11 +139,6 @@ jobs:
         uses: oracle-actions/run-oci-cli-command@v1.3.2
         with:
           command: 'oci --version'
-
-      - name: Authenticate to OCI (OIDC)
-        uses: oracle-actions/login-oci@v1.0.0
-        with:
-          auth_type: workload_identity
 
       - name: Terraform Init
         run: terraform init

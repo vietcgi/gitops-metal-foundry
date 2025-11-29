@@ -13,16 +13,16 @@ variable "project_name" {
   type        = string
 }
 
-variable "github_owner" {
-  description = "GitHub owner/org for OIDC"
+variable "user_ocid" {
+  description = "User OCID for policy (optional)"
   type        = string
   default     = ""
 }
 
-variable "github_repo" {
-  description = "GitHub repo name for OIDC"
-  type        = string
-  default     = ""
+variable "create_policy" {
+  description = "Whether to create IAM policy"
+  type        = bool
+  default     = false
 }
 
 variable "tags" {

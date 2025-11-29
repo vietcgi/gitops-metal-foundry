@@ -2,11 +2,18 @@
 #
 # GitOps Metal Foundry - Bootstrap Script
 #
-# This script sets up OCI credentials for GitHub Actions OIDC authentication.
-# Terraform runs from GitHub Actions, not from this script.
+# Run from your local machine (Mac/Linux) with OCI CLI and GitHub CLI installed.
+# This script:
+#   1. Creates OCI API key for GitHub Actions
+#   2. Sets GitHub secrets via `gh` CLI (no manual steps!)
+#   3. Creates terraform.tfvars and pushes to repo
 #
-# Run from OCI Cloud Shell:
-#   curl -sSL https://raw.githubusercontent.com/YOUR_USER/gitops-metal-foundry/main/bootstrap.sh | bash
+# Prerequisites:
+#   - OCI CLI configured: https://docs.oracle.com/en-us/iaas/Content/API/SDKDocs/cliinstall.htm
+#   - GitHub CLI authenticated: gh auth login
+#
+# Usage:
+#   ./bootstrap.sh
 #
 
 set -euo pipefail
@@ -65,110 +72,236 @@ EOF
 }
 
 #=============================================================================
-# Step 1: Validate OCI Environment
+# Step 1: Validate Prerequisites
 #=============================================================================
 
-validate_oci() {
-    log_info "Validating OCI environment..."
-
-    # Check if running in Cloud Shell
-    if [[ -n "${OCI_CLI_CLOUD_SHELL:-}" ]]; then
-        log_success "Running in OCI Cloud Shell"
-    else
-        log_warn "Not in Cloud Shell - ensure OCI CLI is configured"
-    fi
+validate_prerequisites() {
+    log_info "Validating prerequisites..."
 
     # Check required tools
-    for cmd in oci jq curl; do
+    local missing=()
+    for cmd in oci gh jq git openssl; do
         if ! command -v "$cmd" &> /dev/null; then
-            log_error "Missing required tool: $cmd"
-            exit 1
+            missing+=("$cmd")
         fi
     done
 
-    # Verify OCI authentication
-    if ! oci iam region list --output table &> /dev/null; then
-        log_error "OCI authentication failed"
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        log_error "Missing required tools: ${missing[*]}"
+        echo ""
+        echo "Install with:"
+        echo "  brew install oci-cli gh jq git openssl"
         exit 1
     fi
-    log_success "OCI authentication verified"
+    log_success "All tools installed"
 
-    # Get tenancy OCID
-    if [[ -n "${OCI_TENANCY:-}" ]]; then
-        :
-    elif [[ -n "${OCI_CLI_TENANCY:-}" ]]; then
-        OCI_TENANCY="$OCI_CLI_TENANCY"
-    else
-        OCI_TENANCY=$(grep '^tenancy' ~/.oci/config 2>/dev/null | head -1 | cut -d'=' -f2 | tr -d ' ')
-    fi
-
-    if [[ -z "$OCI_TENANCY" ]]; then
-        log_info "Detecting tenancy from API..."
-        OCI_TENANCY=$(oci iam user list --limit 1 --query 'data[0]."compartment-id"' --raw-output 2>/dev/null)
-    fi
-
-    if [[ -z "$OCI_TENANCY" ]]; then
-        log_error "Could not determine tenancy OCID"
+    # Check OCI CLI authentication
+    if ! oci iam region list &> /dev/null; then
+        log_error "OCI CLI not authenticated"
+        echo ""
+        echo "Run: oci setup config"
         exit 1
     fi
+    log_success "OCI CLI authenticated"
 
-    log_info "Tenancy: ${OCI_TENANCY:0:50}..."
-    export OCI_TENANCY
+    # Check GitHub CLI authentication
+    if ! gh auth status &> /dev/null; then
+        log_error "GitHub CLI not authenticated"
+        echo ""
+        echo "Run: gh auth login"
+        exit 1
+    fi
+    log_success "GitHub CLI authenticated"
 }
 
 #=============================================================================
-# Step 2: Get Configuration
+# Step 2: Get OCI Configuration from CLI
 #=============================================================================
 
-get_config() {
-    echo ""
-    log_info "Configuration"
-    echo ""
+get_oci_config() {
+    log_info "Reading OCI configuration..."
 
-    # Region
-    if [[ -n "${OCI_CLI_REGION:-}" ]]; then
-        OCI_REGION="$OCI_CLI_REGION"
-        log_info "Using Cloud Shell region: $OCI_REGION"
-    else
-        read -r -p "Enter OCI region (e.g., us-sanjose-1): " OCI_REGION < /dev/tty
-    fi
-    export OCI_REGION
+    # Read from OCI CLI config file
+    OCI_CONFIG_FILE="${OCI_CLI_CONFIG_FILE:-$HOME/.oci/config}"
+    OCI_PROFILE="${OCI_CLI_PROFILE:-DEFAULT}"
 
-    # GitHub repo
-    echo ""
-    log_info "GitHub repository for GitOps"
-    read -r -p "Enter GitHub repo (owner/repo or full URL): " GITHUB_REPO_FULL < /dev/tty
-
-    if [[ -z "$GITHUB_REPO_FULL" ]]; then
-        log_error "GitHub repo is required for GitOps"
+    if [[ ! -f "$OCI_CONFIG_FILE" ]]; then
+        log_error "OCI config file not found: $OCI_CONFIG_FILE"
         exit 1
     fi
 
-    # Handle both formats: "owner/repo" or "https://github.com/owner/repo"
+    # Parse config file for the profile
+    parse_oci_config() {
+        local key=$1
+        awk -v profile="[$OCI_PROFILE]" -v key="$key" '
+            $0 == profile { found=1; next }
+            /^\[/ { found=0 }
+            found && $0 ~ "^"key"[[:space:]]*=" {
+                sub(/^[^=]*=[[:space:]]*/, "")
+                print
+                exit
+            }
+        ' "$OCI_CONFIG_FILE"
+    }
+
+    OCI_USER=$(parse_oci_config "user")
+    OCI_TENANCY=$(parse_oci_config "tenancy")
+    OCI_REGION=$(parse_oci_config "region")
+    OCI_KEY_FILE=$(parse_oci_config "key_file")
+
+    # Expand ~ in key file path
+    OCI_KEY_FILE="${OCI_KEY_FILE/#\~/$HOME}"
+
+    if [[ -z "$OCI_USER" || -z "$OCI_TENANCY" || -z "$OCI_REGION" ]]; then
+        log_error "Could not parse OCI config. Check your ~/.oci/config"
+        exit 1
+    fi
+
+    log_success "User: ${OCI_USER:0:30}..."
+    log_success "Tenancy: ${OCI_TENANCY:0:30}..."
+    log_success "Region: $OCI_REGION"
+}
+
+#=============================================================================
+# Step 3: Get GitHub Repository
+#=============================================================================
+
+get_github_repo() {
+    echo ""
+    log_info "GitHub Repository Configuration"
+
+    # Try to detect from current directory
+    if git remote get-url origin &> /dev/null; then
+        DETECTED_REPO=$(git remote get-url origin | sed 's|.*github.com[:/]||' | sed 's|\.git$||')
+        log_info "Detected repo: $DETECTED_REPO"
+        read -r -p "Use this repo? (Y/n): " use_detected
+        if [[ ! "$use_detected" =~ ^[Nn]$ ]]; then
+            GITHUB_REPO_FULL="$DETECTED_REPO"
+        fi
+    fi
+
+    if [[ -z "${GITHUB_REPO_FULL:-}" ]]; then
+        read -r -p "Enter GitHub repo (owner/repo): " GITHUB_REPO_FULL
+    fi
+
+    # Parse owner/repo
     GITHUB_REPO_FULL=$(echo "$GITHUB_REPO_FULL" | sed 's|https://github.com/||' | sed 's|\.git$||' | sed 's|/$||')
     GITHUB_OWNER=$(echo "$GITHUB_REPO_FULL" | cut -d'/' -f1)
     GITHUB_REPO=$(echo "$GITHUB_REPO_FULL" | cut -d'/' -f2)
 
     if [[ -z "$GITHUB_OWNER" || -z "$GITHUB_REPO" ]]; then
-        log_error "Invalid repo format. Use: owner/repo or https://github.com/owner/repo"
+        log_error "Invalid repo format. Use: owner/repo"
         exit 1
     fi
 
-    log_info "GitHub Owner: $GITHUB_OWNER"
-    log_info "GitHub Repo: $GITHUB_REPO"
+    # Verify repo exists and we have access
+    if ! gh repo view "$GITHUB_OWNER/$GITHUB_REPO" &> /dev/null; then
+        log_error "Cannot access repo: $GITHUB_OWNER/$GITHUB_REPO"
+        exit 1
+    fi
 
-    # Project name
-    PROJECT_NAME="${PROJECT_NAME:-metal-foundry}"
+    log_success "GitHub repo: $GITHUB_OWNER/$GITHUB_REPO"
 }
 
 #=============================================================================
-# Step 3: Create Compartment
+# Step 4: Create OCI API Key for GitHub Actions
+#=============================================================================
+
+create_api_key() {
+    log_info "Setting up OCI API key for GitHub Actions..."
+
+    API_KEY_DIR="$HOME/.oci/github-actions"
+    API_KEY_FILE="$API_KEY_DIR/oci_api_key.pem"
+    API_KEY_PUBLIC="$API_KEY_DIR/oci_api_key_public.pem"
+
+    # Check if we already have a key
+    if [[ -f "$API_KEY_FILE" ]]; then
+        log_info "Found existing API key: $API_KEY_FILE"
+        read -r -p "Use existing key? (Y/n): " use_existing
+        if [[ ! "$use_existing" =~ ^[Nn]$ ]]; then
+            # Get fingerprint of existing key
+            OCI_FINGERPRINT=$(openssl rsa -pubout -in "$API_KEY_FILE" 2>/dev/null | openssl md5 -c | awk '{print $2}')
+            OCI_KEY_CONTENT=$(cat "$API_KEY_FILE")
+            log_success "Using existing API key"
+            return
+        fi
+    fi
+
+    # Create new key
+    log_info "Generating new API key..."
+    mkdir -p "$API_KEY_DIR"
+    chmod 700 "$API_KEY_DIR"
+
+    # Generate RSA 2048-bit key (OCI requirement)
+    openssl genrsa -out "$API_KEY_FILE" 2048 2>/dev/null
+    chmod 600 "$API_KEY_FILE"
+
+    # Extract public key
+    openssl rsa -pubout -in "$API_KEY_FILE" -out "$API_KEY_PUBLIC" 2>/dev/null
+
+    # Calculate fingerprint
+    OCI_FINGERPRINT=$(openssl rsa -pubout -in "$API_KEY_FILE" 2>/dev/null | openssl md5 -c | awk '{print $2}')
+    OCI_KEY_CONTENT=$(cat "$API_KEY_FILE")
+
+    log_success "Generated API key with fingerprint: $OCI_FINGERPRINT"
+
+    # Upload public key to OCI
+    log_info "Uploading public key to OCI..."
+
+    # Check if key with this fingerprint already exists
+    EXISTING_KEY=$(oci iam user api-key list \
+        --user-id "$OCI_USER" \
+        --query "data[?fingerprint=='$OCI_FINGERPRINT'].fingerprint | [0]" \
+        --raw-output 2>/dev/null || echo "")
+
+    if [[ -n "$EXISTING_KEY" && "$EXISTING_KEY" != "null" ]]; then
+        log_info "API key already registered in OCI"
+    else
+        oci iam user api-key upload \
+            --user-id "$OCI_USER" \
+            --key-file "$API_KEY_PUBLIC" > /dev/null 2>&1 && \
+            log_success "Uploaded API key to OCI" || \
+            log_error "Failed to upload API key. You may need to add it manually in OCI Console."
+    fi
+}
+
+#=============================================================================
+# Step 5: Set GitHub Secrets
+#=============================================================================
+
+set_github_secrets() {
+    log_info "Setting GitHub secrets via gh CLI..."
+
+    # Set OCI secrets
+    echo "$OCI_KEY_CONTENT" | gh secret set OCI_CLI_KEY_CONTENT -R "$GITHUB_OWNER/$GITHUB_REPO"
+    log_success "Set secret: OCI_CLI_KEY_CONTENT"
+
+    gh secret set OCI_CLI_USER -R "$GITHUB_OWNER/$GITHUB_REPO" -b "$OCI_USER"
+    log_success "Set secret: OCI_CLI_USER"
+
+    gh secret set OCI_CLI_TENANCY -R "$GITHUB_OWNER/$GITHUB_REPO" -b "$OCI_TENANCY"
+    log_success "Set secret: OCI_CLI_TENANCY"
+
+    gh secret set OCI_CLI_FINGERPRINT -R "$GITHUB_OWNER/$GITHUB_REPO" -b "$OCI_FINGERPRINT"
+    log_success "Set secret: OCI_CLI_FINGERPRINT"
+
+    gh secret set OCI_CLI_REGION -R "$GITHUB_OWNER/$GITHUB_REPO" -b "$OCI_REGION"
+    log_success "Set secret: OCI_CLI_REGION"
+
+    log_success "All GitHub secrets configured!"
+}
+
+#=============================================================================
+# Step 6: Create Compartment
 #=============================================================================
 
 create_compartment() {
     log_info "Setting up OCI compartment..."
 
+    PROJECT_NAME="${PROJECT_NAME:-metal-foundry}"
+
     EXISTING=$(oci iam compartment list \
+        --compartment-id "$OCI_TENANCY" \
         --query "data[?name=='${PROJECT_NAME}' && \"lifecycle-state\"=='ACTIVE'].id | [0]" \
         --raw-output 2>/dev/null || echo "")
 
@@ -190,176 +323,124 @@ create_compartment() {
     fi
 
     log_success "Compartment: ${OCI_COMPARTMENT:0:50}..."
-    export OCI_COMPARTMENT
 }
 
 #=============================================================================
-# Step 4: Get SSH Public Key
+# Step 7: Get SSH Key
 #=============================================================================
 
 get_ssh_key() {
     log_info "SSH public key for VM access"
     echo ""
 
+    SSH_PUBLIC_KEY=""
+
     # Check for existing keys
-    if [[ -f ~/.ssh/id_rsa.pub ]]; then
-        log_info "Found existing key: ~/.ssh/id_rsa.pub"
-        read -r -p "Use this key? (y/n): " use_existing < /dev/tty
-        if [[ "$use_existing" =~ ^[Yy]$ ]]; then
-            SSH_PUBLIC_KEY=$(cat ~/.ssh/id_rsa.pub)
-            export SSH_PUBLIC_KEY
-            return
+    for key_file in ~/.ssh/id_ed25519.pub ~/.ssh/id_rsa.pub; do
+        if [[ -f "$key_file" ]]; then
+            log_info "Found: $key_file"
+            read -r -p "Use this key? (Y/n): " use_existing
+            if [[ ! "$use_existing" =~ ^[Nn]$ ]]; then
+                SSH_PUBLIC_KEY=$(cat "$key_file")
+                log_success "Using $key_file"
+                return
+            fi
         fi
-    fi
+    done
 
     echo "Paste your SSH public key (or press Enter to skip):"
-    read -r SSH_PUBLIC_KEY < /dev/tty
+    read -r SSH_PUBLIC_KEY
 
     if [[ -z "$SSH_PUBLIC_KEY" ]]; then
-        log_warn "No SSH key provided - you'll need to add it to GitHub secrets as SSH_PUBLIC_KEY"
-        SSH_PUBLIC_KEY=""
+        log_warn "No SSH key - you won't be able to SSH into VMs"
     fi
-    export SSH_PUBLIC_KEY
 }
 
 #=============================================================================
-# Step 5: Setup GitHub OIDC in OCI
+# Step 8: Create and Push terraform.tfvars
 #=============================================================================
 
-setup_oidc() {
-    log_info "Setting up GitHub OIDC authentication..."
+create_and_push_tfvars() {
+    log_info "Creating terraform.tfvars..."
 
-    # Step 1: Create OIDC Identity Provider for GitHub
-    IDP_NAME="${PROJECT_NAME}-github-oidc"
-    EXISTING_IDP=$(oci iam identity-provider list \
-        --compartment-id "$OCI_TENANCY" \
-        --protocol SAML2 \
-        --query "data[?name=='${IDP_NAME}'].id | [0]" \
-        --raw-output 2>/dev/null || echo "")
-
-    # Note: OCI doesn't have direct OIDC IdP creation via CLI for GitHub
-    # We use Dynamic Groups with OIDC claims instead
-    log_info "Using Dynamic Group with OIDC claims for GitHub authentication"
-
-    # Step 2: Create Dynamic Group matching GitHub OIDC tokens
-    DG_NAME="${PROJECT_NAME}-github-actions"
-    EXISTING_DG=$(oci iam dynamic-group list \
-        --compartment-id "$OCI_TENANCY" \
-        --query "data[?name=='${DG_NAME}'].id | [0]" \
-        --raw-output 2>/dev/null || echo "")
-
-    if [[ -n "$EXISTING_DG" && "$EXISTING_DG" != "null" ]]; then
-        log_info "Dynamic group already exists: $DG_NAME"
+    # Check if we're in the repo directory
+    if [[ -d "terraform" ]]; then
+        REPO_DIR="."
     else
-        log_info "Creating dynamic group for GitHub Actions..."
-
-        # Matching rule for GitHub OIDC - matches tokens from this repo
-        MATCHING_RULE="ALL {resource.type='workload', resource.compartment.id='${OCI_COMPARTMENT}'}"
-
-        oci iam dynamic-group create \
-            --compartment-id "$OCI_TENANCY" \
-            --name "$DG_NAME" \
-            --description "GitHub Actions Workload Identity for ${GITHUB_OWNER}/${GITHUB_REPO}" \
-            --matching-rule "$MATCHING_RULE" \
-            --wait-for-state ACTIVE > /dev/null 2>&1 && \
-            log_success "Created dynamic group: $DG_NAME" || \
-            log_warn "Could not create dynamic group (may need admin privileges)"
+        # Clone the repo
+        REPO_DIR="/tmp/gitops-metal-foundry-$$"
+        rm -rf "$REPO_DIR"
+        gh repo clone "$GITHUB_OWNER/$GITHUB_REPO" "$REPO_DIR"
     fi
-
-    # Step 3: Create IAM Policy
-    POLICY_NAME="${PROJECT_NAME}-github-actions-policy"
-    EXISTING_POLICY=$(oci iam policy list \
-        --compartment-id "$OCI_TENANCY" \
-        --query "data[?name=='${POLICY_NAME}'].id | [0]" \
-        --raw-output 2>/dev/null || echo "")
-
-    if [[ -n "$EXISTING_POLICY" && "$EXISTING_POLICY" != "null" ]]; then
-        log_info "Policy already exists: $POLICY_NAME"
-    else
-        log_info "Creating IAM policy for GitHub Actions..."
-
-        # Policy to allow dynamic group to manage resources
-        STATEMENTS="[\"Allow dynamic-group ${DG_NAME} to manage all-resources in compartment ${PROJECT_NAME}\"]"
-
-        oci iam policy create \
-            --compartment-id "$OCI_TENANCY" \
-            --name "$POLICY_NAME" \
-            --description "Permissions for GitHub Actions to manage Metal Foundry resources" \
-            --statements "$STATEMENTS" > /dev/null 2>&1 && \
-            log_success "Created policy: $POLICY_NAME" || \
-            log_warn "Could not create policy (may need admin privileges)"
-    fi
-
-    log_success "OIDC setup complete"
-}
-
-#=============================================================================
-# Step 6: Print GitHub Setup Instructions
-#=============================================================================
-
-commit_and_push() {
-    log_info "Creating and pushing terraform.tfvars..."
-
-    # Clone repo (try SSH first, then HTTPS)
-    WORK_DIR="/tmp/gitops-metal-foundry-$$"
-    rm -rf "$WORK_DIR"
-
-    if git clone "git@github.com:${GITHUB_OWNER}/${GITHUB_REPO}.git" "$WORK_DIR" 2>/dev/null; then
-        log_success "Cloned via SSH"
-    elif git clone "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}.git" "$WORK_DIR" 2>/dev/null; then
-        log_success "Cloned via HTTPS"
-    else
-        log_error "Could not clone repo. Make sure it exists and you have access."
-        return 1
-    fi
-
-    cd "$WORK_DIR"
 
     # Create terraform.tfvars
-    cat > "terraform/terraform.tfvars" << EOF
+    cat > "$REPO_DIR/terraform/terraform.tfvars" << EOF
 # Generated by bootstrap.sh on $(date)
 # OCI Configuration for GitOps Metal Foundry
 
-tenancy_ocid     = "${OCI_TENANCY}"
-compartment_ocid = "${OCI_COMPARTMENT}"
-region           = "${OCI_REGION}"
+tenancy_ocid     = "$OCI_TENANCY"
+compartment_ocid = "$OCI_COMPARTMENT"
+region           = "$OCI_REGION"
+
+# GitHub for OIDC (informational - auth via API key)
+github_owner = "$GITHUB_OWNER"
+github_repo  = "$GITHUB_REPO"
 
 # SSH public key for VM access
-ssh_public_key = "${SSH_PUBLIC_KEY}"
+ssh_public_key = "$SSH_PUBLIC_KEY"
 
 # Project name
-project_name = "${PROJECT_NAME}"
+project_name = "$PROJECT_NAME"
 EOF
 
     log_success "Created terraform/terraform.tfvars"
 
     # Commit and push
-    log_info "Committing and pushing to GitHub..."
+    cd "$REPO_DIR"
     git add terraform/terraform.tfvars
-    git commit -m "feat: add OCI configuration for ${OCI_REGION}" > /dev/null 2>&1 || {
-        log_info "No changes to commit (tfvars already exists)"
-    }
 
-    git push origin main 2>/dev/null && {
-        log_success "Pushed to GitHub - workflow will start automatically"
-    } || {
-        log_warn "Could not push. You may need to set up git credentials."
-        log_info "Run manually: cd $WORK_DIR && git push"
-        return 1
-    }
+    if git diff --cached --quiet; then
+        log_info "No changes to commit"
+    else
+        git commit -m "feat: add OCI configuration for $OCI_REGION"
+        git push origin main
+        log_success "Pushed to GitHub"
+    fi
 
+    cd - > /dev/null
+}
+
+#=============================================================================
+# Step 9: Summary
+#=============================================================================
+
+print_summary() {
     echo ""
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}${BOLD}  Bootstrap Complete!${NC}"
     echo -e "${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo ""
-    echo -e "${BOLD}GitHub Actions is now running Terraform!${NC}"
+    echo -e "${BOLD}What was configured:${NC}"
     echo ""
-    echo "  Watch progress: https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/actions"
+    echo "  OCI:"
+    echo "    - Compartment: $PROJECT_NAME"
+    echo "    - Region: $OCI_REGION"
+    echo "    - API Key: ~/.oci/github-actions/oci_api_key.pem"
     echo ""
-    echo "  After infrastructure is created:"
-    echo "    1. Get VM IP from workflow output"
-    echo "    2. SSH: ssh ubuntu@<IP>"
+    echo "  GitHub Secrets (set automatically):"
+    echo "    - OCI_CLI_USER"
+    echo "    - OCI_CLI_TENANCY"
+    echo "    - OCI_CLI_FINGERPRINT"
+    echo "    - OCI_CLI_KEY_CONTENT"
+    echo "    - OCI_CLI_REGION"
+    echo ""
+    echo -e "${BOLD}Next Steps:${NC}"
+    echo ""
+    echo "  1. GitHub Actions will run automatically on push"
+    echo "     Watch: https://github.com/$GITHUB_OWNER/$GITHUB_REPO/actions"
+    echo ""
+    echo "  2. Create a PR to trigger terraform plan"
+    echo "  3. Merge to main to trigger terraform apply"
     echo ""
     echo -e "${GREEN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
     echo -e "${GREEN}  Cost: \$0.00/month (Oracle Always Free Tier)${NC}"
@@ -373,12 +454,15 @@ EOF
 
 main() {
     banner
-    validate_oci
-    get_config
+    validate_prerequisites
+    get_oci_config
+    get_github_repo
+    create_api_key
+    set_github_secrets
     create_compartment
     get_ssh_key
-    setup_oidc
-    commit_and_push
+    create_and_push_tfvars
+    print_summary
 }
 
 # Handle errors

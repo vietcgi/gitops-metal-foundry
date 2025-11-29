@@ -150,13 +150,13 @@ if [ -n "$PRIVATE_IP" ]; then
 apiVersion: cilium.io/v2alpha1
 kind: CiliumLoadBalancerIPPool
 metadata:
-  name: default-pool
+  name: lb-pool
 spec:
   blocks:
     - start: "${PRIVATE_IP}"
       stop: "${PRIVATE_IP}"
 EOF
-    log "CiliumLoadBalancerIPPool created with IP: $PRIVATE_IP"
+    log "CiliumLoadBalancerIPPool 'lb-pool' created with IP: $PRIVATE_IP"
 else
     log "WARNING: Could not determine private IP for LoadBalancer pool"
 fi

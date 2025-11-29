@@ -38,10 +38,10 @@ env:
   OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
   OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
   # Terraform variables
-  TF_VAR_tenancy_ocid: ${{ secrets.TF_VAR_tenancy_ocid }}
-  TF_VAR_compartment_ocid: ${{ secrets.TF_VAR_compartment_ocid }}
-  TF_VAR_region: ${{ secrets.TF_VAR_region }}
-  TF_VAR_ssh_public_key: ${{ secrets.TF_VAR_ssh_public_key }}
+  TF_VAR_tenancy_ocid: ${{ secrets.TF_VAR_TENANCY_OCID }}
+  TF_VAR_compartment_ocid: ${{ secrets.TF_VAR_COMPARTMENT_OCID }}
+  TF_VAR_region: ${{ secrets.TF_VAR_REGION }}
+  TF_VAR_ssh_public_key: ${{ secrets.TF_VAR_SSH_PUBLIC_KEY }}
 
 jobs:
   validate:

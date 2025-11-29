@@ -119,11 +119,11 @@ if ! kubectl get pods -n kube-system -l app.kubernetes.io/name=cilium-agent --no
         --set hubble.enabled=true \
         --set hubble.relay.enabled=true
 
-    # Patch ConfigMap to ensure shared mode is set (workaround for CLI not applying it)
-    log "Configuring Cilium ingress shared mode..."
+    # Patch ConfigMap to configure ingress and Gateway API modes
+    log "Configuring Cilium ingress and Gateway API..."
     sleep 10
     kubectl patch configmap cilium-config -n kube-system --type=merge \
-        -p '{"data":{"ingress-default-lb-mode":"shared","ingress-hostnetwork-enabled":"false"}}' || true
+        -p '{"data":{"ingress-default-lb-mode":"shared","ingress-hostnetwork-enabled":"false","gateway-api-hostnetwork-enabled":"false"}}' || true
 else
     log "Cilium already installed"
 fi

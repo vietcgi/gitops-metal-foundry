@@ -101,17 +101,8 @@ module "control_plane" {
   tags = local.common_tags
 }
 
-#=============================================================================
-# Object Storage Module - For Terraform State & Backups
-#=============================================================================
-
-module "object_storage" {
-  source = "./modules/object-storage"
-
-  compartment_id = var.compartment_ocid
-  project_name   = var.project_name
-  tags           = local.common_tags
-}
+# Note: Object storage bucket (metal-foundry-state) is created outside Terraform
+# because it's used for Terraform state storage (chicken-and-egg problem)
 
 #=============================================================================
 # IAM Module - Optional policies

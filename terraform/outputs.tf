@@ -32,15 +32,7 @@ output "private_subnet_id" {
   value       = module.vcn.private_subnet_id
 }
 
-output "state_bucket_name" {
-  description = "Name of the object storage bucket for state/backups"
-  value       = module.object_storage.bucket_name
-}
-
-output "state_bucket_namespace" {
-  description = "Namespace of the object storage bucket"
-  value       = module.object_storage.bucket_namespace
-}
+# Note: State bucket (metal-foundry-state) is managed outside Terraform
 
 # SSH command for convenience
 output "ssh_command" {

@@ -228,23 +228,27 @@ install_dependencies() {
 #=============================================================================
 
 validate_auth() {
-    log_info "Validating authentication..."
+    # Check OCI CLI config exists
+    log_info "Checking OCI CLI configuration..."
 
-    # Check OCI CLI authentication
-    if ! oci iam region list &> /dev/null; then
-        log_warn "OCI CLI not configured"
+    OCI_CONFIG_FILE="${OCI_CLI_CONFIG_FILE:-$HOME/.oci/config}"
+
+    if [[ ! -f "$OCI_CONFIG_FILE" ]]; then
+        log_warn "OCI CLI not configured (no config file found)"
         echo ""
         log_info "Running OCI CLI setup..."
         oci setup config
     fi
 
-    if ! oci iam region list &> /dev/null; then
-        log_error "OCI CLI authentication failed"
+    if [[ ! -f "$OCI_CONFIG_FILE" ]]; then
+        log_error "OCI CLI configuration failed - no config file"
         exit 1
     fi
-    log_success "OCI CLI authenticated"
+    log_success "OCI CLI configured"
 
     # Check GitHub CLI authentication
+    log_info "Checking GitHub CLI authentication..."
+
     if ! gh auth status &> /dev/null; then
         log_warn "GitHub CLI not authenticated"
         echo ""

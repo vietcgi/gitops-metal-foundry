@@ -5,6 +5,7 @@ metadata:
   name: loki
   namespace: monitoring
 spec:
+  suspend: true
   interval: 1h
   chart:
     spec:

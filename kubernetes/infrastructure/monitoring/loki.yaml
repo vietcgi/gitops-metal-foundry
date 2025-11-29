@@ -1,0 +1,38 @@
+---
+apiVersion: helm.toolkit.fluxcd.io/v2
+kind: HelmRelease
+metadata:
+  name: loki
+  namespace: monitoring
+spec:
+  interval: 1h
+  chart:
+    spec:
+      chart: loki
+      version: "6.24.0"
+      sourceRef:
+        kind: HelmRepository
+        name: grafana
+        namespace: flux-system
+  values:
+    deploymentMode: SingleBinary
+    loki:
+      commonConfig:
+        replication_factor: 1
+      storage:
+        type: 'filesystem'
+      schemaConfig:
+        configs:
+          - from: 2024-04-01
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+    singleBinary:
+      replicas: 1
+      persistence:
+        enabled: true
+        size: 10Gi
+        storageClass: local-path

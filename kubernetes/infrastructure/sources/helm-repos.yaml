@@ -63,3 +63,57 @@ spec:
   interval: 1h
   type: oci
   url: oci://ghcr.io/tinkerbell/charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: hashicorp
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://helm.releases.hashicorp.com
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: gatekeeper
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://open-policy-agent.github.io/gatekeeper/charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: kyverno
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://kyverno.github.io/kyverno/
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: vmware-tanzu
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://vmware-tanzu.github.io/helm-charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: grafana
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://grafana.github.io/helm-charts
+---
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: HelmRepository
+metadata:
+  name: jaegertracing
+  namespace: flux-system
+spec:
+  interval: 1h
+  url: https://jaegertracing.github.io/helm-charts

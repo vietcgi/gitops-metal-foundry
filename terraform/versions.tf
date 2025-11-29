@@ -18,9 +18,9 @@ terraform {
 }
 
 provider "oci" {
-  region = var.region
-  # Authentication is handled by:
-  # - OCI Cloud Shell (automatic)
-  # - OCI CLI config (~/.oci/config)
-  # - Environment variables
+  region           = var.region
+  tenancy_ocid     = var.tenancy_ocid
+  user_ocid        = var.user_ocid
+  fingerprint      = var.fingerprint
+  private_key      = var.private_key
 }

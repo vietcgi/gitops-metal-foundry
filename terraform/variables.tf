@@ -1,5 +1,5 @@
 #=============================================================================
-# Required Variables
+# OCI Provider Authentication
 #=============================================================================
 
 variable "tenancy_ocid" {
@@ -7,13 +7,33 @@ variable "tenancy_ocid" {
   type        = string
 }
 
-variable "compartment_ocid" {
-  description = "OCI Compartment OCID for resources"
+variable "user_ocid" {
+  description = "OCI User OCID"
   type        = string
+}
+
+variable "fingerprint" {
+  description = "OCI API Key fingerprint"
+  type        = string
+}
+
+variable "private_key" {
+  description = "OCI API private key content"
+  type        = string
+  sensitive   = true
 }
 
 variable "region" {
   description = "OCI Region (e.g., us-ashburn-1)"
+  type        = string
+}
+
+#=============================================================================
+# Required Variables
+#=============================================================================
+
+variable "compartment_ocid" {
+  description = "OCI Compartment OCID for resources"
   type        = string
 }
 

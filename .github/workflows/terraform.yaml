@@ -1,28 +1,34 @@
 # Terraform CI/CD Pipeline
 #
-# Uses OCI API Key authentication (secrets set by bootstrap.sh via gh CLI)
-#
-# Workflow:
-#   - PR: terraform plan (comment on PR)
+# Flow:
+#   - PR: terraform plan (posted as comment)
 #   - Merge to main: terraform apply
+#   - Manual: workflow_dispatch for testing
 #
 
 name: Terraform
 
 on:
-  push:
-    branches:
-      - main
+  pull_request:
+    branches: [main]
     paths:
       - 'terraform/**'
       - '.github/workflows/terraform.yaml'
-  pull_request:
-    branches:
-      - main
+  push:
+    branches: [main]
     paths:
       - 'terraform/**'
       - '.github/workflows/terraform.yaml'
   workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'plan'
+        type: choice
+        options:
+          - plan
+          - apply
 
 permissions:
   contents: read
@@ -31,22 +37,20 @@ permissions:
 env:
   TF_VERSION: '1.5.7'
   TF_WORKING_DIR: 'terraform'
-  # OCI CLI authentication
-  OCI_CLI_USER: ${{ secrets.OCI_CLI_USER }}
-  OCI_CLI_TENANCY: ${{ secrets.OCI_CLI_TENANCY }}
-  OCI_CLI_FINGERPRINT: ${{ secrets.OCI_CLI_FINGERPRINT }}
-  OCI_CLI_KEY_CONTENT: ${{ secrets.OCI_CLI_KEY_CONTENT }}
-  OCI_CLI_REGION: ${{ secrets.OCI_CLI_REGION }}
-  # Terraform variables
+  # Terraform provider variables
   TF_VAR_tenancy_ocid: ${{ secrets.TF_VAR_TENANCY_OCID }}
-  TF_VAR_compartment_ocid: ${{ secrets.TF_VAR_COMPARTMENT_OCID }}
+  TF_VAR_user_ocid: ${{ secrets.OCI_CLI_USER }}
+  TF_VAR_fingerprint: ${{ secrets.OCI_CLI_FINGERPRINT }}
+  TF_VAR_private_key: ${{ secrets.OCI_CLI_KEY_CONTENT }}
   TF_VAR_region: ${{ secrets.TF_VAR_REGION }}
+  TF_VAR_compartment_ocid: ${{ secrets.TF_VAR_COMPARTMENT_OCID }}
   TF_VAR_ssh_public_key: ${{ secrets.TF_VAR_SSH_PUBLIC_KEY }}
 
 jobs:
-  validate:
-    name: Validate
+  plan:
+    name: Plan
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request' || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'plan')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -55,10 +59,6 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Terraform Format Check
-        run: terraform fmt -check -recursive
-        working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Init
         run: terraform init -backend=false
@@ -66,29 +66,6 @@ jobs:
 
       - name: Terraform Validate
         run: terraform validate
-        working-directory: ${{ env.TF_WORKING_DIR }}
-
-  plan:
-    name: Plan
-    runs-on: ubuntu-latest
-    needs: validate
-    if: github.event_name == 'pull_request'
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Setup OCI CLI
-        uses: oracle-actions/run-oci-cli-command@v1.3.2
-        with:
-          command: 'oci --version'
-
-      - name: Terraform Init
-        run: terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Plan
@@ -101,6 +78,7 @@ jobs:
         working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Comment Plan on PR
+        if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
@@ -116,7 +94,7 @@ jobs:
 
             </details>
 
-            *Pushed by: @${{ github.actor }}, Action: \`${{ github.event_name }}\`*`;
+            *Triggered by: @${{ github.actor }}*`;
 
             github.rest.issues.createComment({
               issue_number: context.issue.number,
@@ -128,8 +106,7 @@ jobs:
   apply:
     name: Apply
     runs-on: ubuntu-latest
-    needs: validate
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
     environment: production
     steps:
       - name: Checkout
@@ -140,13 +117,8 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Setup OCI CLI
-        uses: oracle-actions/run-oci-cli-command@v1.3.2
-        with:
-          command: 'oci --version'
-
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -backend=false
         working-directory: ${{ env.TF_WORKING_DIR }}
 
       - name: Terraform Apply

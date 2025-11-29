@@ -228,16 +228,13 @@ install_dependencies() {
 #=============================================================================
 
 validate_auth() {
-    # Check OCI CLI - try session token first, then config file
-    log_info "Checking OCI CLI authentication..."
-
     OCI_CONFIG_FILE="${OCI_CLI_CONFIG_FILE:-$HOME/.oci/config}"
-    OCI_SESSION_DIR="$HOME/.oci/sessions"
+    SESSION_CONFIG="$HOME/.oci/sessions/DEFAULT/oci_api_key_config"
 
-    # Check if already authenticated (config or session)
-    if oci iam region list --auth security_token &> /dev/null 2>&1; then
+    # Check if already authenticated (just check files exist, no API calls)
+    if [[ -f "$SESSION_CONFIG" ]]; then
         log_success "OCI CLI authenticated (session token)"
-    elif [[ -f "$OCI_CONFIG_FILE" ]] && oci iam region list &> /dev/null 2>&1; then
+    elif [[ -f "$OCI_CONFIG_FILE" ]]; then
         log_success "OCI CLI authenticated (API key)"
     else
         log_warn "OCI CLI not authenticated"
@@ -257,7 +254,7 @@ validate_auth() {
         log_info "Opening browser for authentication..."
         oci session authenticate --region "$OCI_REGION_INPUT"
 
-        if ! oci iam region list --auth security_token &> /dev/null 2>&1; then
+        if [[ ! -f "$HOME/.oci/sessions/DEFAULT/oci_api_key_config" ]]; then
             log_error "OCI authentication failed"
             exit 1
         fi

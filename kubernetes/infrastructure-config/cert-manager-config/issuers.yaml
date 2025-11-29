@@ -33,8 +33,11 @@ spec:
       name: letsencrypt-staging-account-key
     solvers:
       - http01:
-          ingress:
-            ingressClassName: cilium
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: main-gateway
+                namespace: ingress
+                kind: Gateway
 ---
 # Let's Encrypt PRODUCTION (HTTP-01 for single-domain certs)
 apiVersion: cert-manager.io/v1
@@ -49,5 +52,8 @@ spec:
       name: letsencrypt-prod-account-key
     solvers:
       - http01:
-          ingress:
-            ingressClassName: cilium
+          gatewayHTTPRoute:
+            parentRefs:
+              - name: main-gateway
+                namespace: ingress
+                kind: Gateway

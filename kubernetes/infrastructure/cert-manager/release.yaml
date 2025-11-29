@@ -21,6 +21,8 @@ spec:
         namespace: flux-system
   values:
     installCRDs: true
+    extraArgs:
+      - --enable-gateway-api
 
     # Resource limits for free tier
     resources:

@@ -4,11 +4,16 @@
 #   - PR: terraform plan (posted as comment)
 #   - Merge to main: terraform apply
 #   - Manual: workflow_dispatch for testing
+#   - Schedule: retry apply every 5 mins (for capacity issues)
 #
 
 name: Terraform
 
 on:
+  schedule:
+    # Retry every 5 minutes for ARM capacity
+    # Disable this after instance is created!
+    - cron: '*/5 * * * *'
   pull_request:
     branches: [main]
     paths:
@@ -128,7 +133,7 @@ jobs:
   apply:
     name: Apply
     runs-on: ubuntu-latest
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+    if: github.event_name == 'schedule' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
     environment: production
     steps:
       - name: Checkout

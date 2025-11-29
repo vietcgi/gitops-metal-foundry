@@ -187,24 +187,32 @@ create_compartment() {
 }
 
 #=============================================================================
-# Step 4: Generate SSH Key
+# Step 4: Get SSH Public Key
 #=============================================================================
 
-generate_ssh_key() {
-    log_info "Setting up SSH key..."
+get_ssh_key() {
+    log_info "SSH public key for VM access"
+    echo ""
 
-    SSH_KEY_PATH=~/.ssh/metal-foundry
-    if [[ ! -f "${SSH_KEY_PATH}.pub" ]]; then
-        log_info "Generating new SSH key..."
-        ssh-keygen -t rsa -b 4096 -f "$SSH_KEY_PATH" -N "" -C "metal-foundry" > /dev/null 2>&1
-        log_success "Generated SSH key: $SSH_KEY_PATH"
-    else
-        log_info "Using existing SSH key: $SSH_KEY_PATH"
+    # Check for existing keys
+    if [[ -f ~/.ssh/id_rsa.pub ]]; then
+        log_info "Found existing key: ~/.ssh/id_rsa.pub"
+        read -r -p "Use this key? (y/n): " use_existing < /dev/tty
+        if [[ "$use_existing" =~ ^[Yy]$ ]]; then
+            SSH_PUBLIC_KEY=$(cat ~/.ssh/id_rsa.pub)
+            export SSH_PUBLIC_KEY
+            return
+        fi
     fi
 
-    SSH_PUBLIC_KEY=$(cat "${SSH_KEY_PATH}.pub")
-    SSH_PRIVATE_KEY=$(cat "${SSH_KEY_PATH}")
-    export SSH_PUBLIC_KEY SSH_PRIVATE_KEY
+    echo "Paste your SSH public key (or press Enter to skip):"
+    read -r SSH_PUBLIC_KEY < /dev/tty
+
+    if [[ -z "$SSH_PUBLIC_KEY" ]]; then
+        log_warn "No SSH key provided - you'll need to add it to GitHub secrets as SSH_PUBLIC_KEY"
+        SSH_PUBLIC_KEY=""
+    fi
+    export SSH_PUBLIC_KEY
 }
 
 #=============================================================================
@@ -287,23 +295,22 @@ print_github_instructions() {
     printf "  │ %-19s │ %-47s │\n" "OCI_REGION" "$OCI_REGION"
     echo "  └─────────────────────┴─────────────────────────────────────────────────┘"
     echo ""
-    echo -e "${BOLD}Step 2: Add these Repository Secrets to GitHub${NC}"
-    echo ""
-    echo "  Go to: https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/settings/secrets/actions"
-    echo ""
-    echo "  ┌─────────────────────┬─────────────────────────────────────────────────┐"
-    echo "  │ Secret Name         │ Value                                           │"
-    echo "  ├─────────────────────┼─────────────────────────────────────────────────┤"
-    echo "  │ SSH_PUBLIC_KEY      │ (copy from below)                               │"
-    echo "  │ SSH_PRIVATE_KEY     │ (copy from below)                               │"
-    echo "  └─────────────────────┴─────────────────────────────────────────────────┘"
-    echo ""
-    echo -e "${BOLD}SSH Public Key:${NC}"
-    echo "$SSH_PUBLIC_KEY"
-    echo ""
-    echo -e "${BOLD}SSH Private Key:${NC}"
-    echo "$SSH_PRIVATE_KEY"
-    echo ""
+    if [[ -n "$SSH_PUBLIC_KEY" ]]; then
+        echo -e "${BOLD}Step 2: Add SSH Public Key as Repository Secret${NC}"
+        echo ""
+        echo "  Go to: https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/settings/secrets/actions"
+        echo ""
+        echo "  Secret Name: SSH_PUBLIC_KEY"
+        echo "  Value:"
+        echo "$SSH_PUBLIC_KEY"
+        echo ""
+    else
+        echo -e "${BOLD}Step 2: Add SSH Public Key as Repository Secret${NC}"
+        echo ""
+        echo "  Go to: https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}/settings/secrets/actions"
+        echo "  Add secret: SSH_PUBLIC_KEY = (your public key)"
+        echo ""
+    fi
     echo -e "${BOLD}Step 3: Trigger Infrastructure Creation${NC}"
     echo ""
     echo "  Option A: Push a change to terraform/ directory"
@@ -334,7 +341,7 @@ main() {
     validate_oci
     get_config
     create_compartment
-    generate_ssh_key
+    get_ssh_key
     setup_oidc
     print_github_instructions
 }

@@ -46,8 +46,9 @@ spec:
     trustedProxies:
       - "10.42.0.0/16"
 
-    # HookOS artifacts URL - served via NodePort (Gateway has HTTP/2 issues with nginx)
-    artifactsFileServer: "http://170.9.8.103:30897"
+    # HookOS artifacts URL - served via Gateway API with HTTPS
+    # Uses hookos.qualityspace.com (DNS-only in Cloudflare, not proxied)
+    artifactsFileServer: "https://hookos.qualityspace.com"
 
     # Deployment configuration
     deployment:
@@ -90,13 +91,45 @@ spec:
       hookos:
         enabled: true
         downloadURL: "https://github.com/tinkerbell/hook/releases/download/v0.11.1"
-        # Use NodePort - Gateway API has HTTP/2 issues with nginx (HTTP/1.1 only)
+        # Use ClusterIP - served via Gateway API at hookos.qualityspace.com
         service:
-          type: NodePort
-          nodePort: 30080
+          type: ClusterIP
       # Disable kubevip - using Cilium L2 announcements
       kubevip:
         enabled: false
+
+  # Post-render patch to set appProtocol on hookos service
+  # This tells Cilium Gateway API to use HTTP/1.1 (nginx doesn't support HTTP/2)
+  postRenderers:
+    - kustomize:
+        patches:
+          - target:
+              kind: Service
+              name: hookos
+            patch: |
+              - op: add
+                path: /spec/ports/0/appProtocol
+                value: http
+---
+# HTTPRoute for HookOS artifacts (kernel, initramfs)
+# Served at hookos.qualityspace.com (DNS-only in Cloudflare)
+# This allows iPXE to download boot files over HTTPS
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: hookos-route
+  namespace: tink-system
+spec:
+  parentRefs:
+    - name: main-gateway
+      namespace: ingress
+      sectionName: https
+  hostnames:
+    - hookos.qualityspace.com
+  rules:
+    - backendRefs:
+        - name: hookos
+          port: 7173
 ---
 # HTTPRoute for Tinkerbell services
 # TLS handled by wildcard cert in ingress namespace

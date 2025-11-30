@@ -38,6 +38,7 @@ spec:
               - name: main-gateway
                 namespace: ingress
                 kind: Gateway
+                # Note: sectionName not needed - Cilium routes based on hostname matching
 ---
 # Let's Encrypt PRODUCTION (HTTP-01 for single-domain certs)
 apiVersion: cert-manager.io/v1
@@ -57,3 +58,4 @@ spec:
               - name: main-gateway
                 namespace: ingress
                 kind: Gateway
+                # Note: sectionName not needed - Cilium routes based on hostname matching

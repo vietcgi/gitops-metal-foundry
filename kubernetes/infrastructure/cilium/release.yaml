@@ -34,11 +34,11 @@ spec:
       enforceHttps: false
 
     # Enable Gateway API (preferred over Ingress)
-    # Use LoadBalancer mode with CiliumLoadBalancerIPPool (more reliable than hostNetwork)
+    # Use hostNetwork mode for direct port binding on host (required for external access)
     gatewayAPI:
       enabled: true
       hostNetwork:
-        enabled: false
+        enabled: true
 
     # Envoy proxy settings - required for privileged port binding
     envoy:

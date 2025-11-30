@@ -249,21 +249,22 @@ runcmd:
   - systemctl enable chrony
   - systemctl restart chrony
 
-  # Configure iptables (use -I to insert at top for critical rules)
-  - iptables -A INPUT -i lo -j ACCEPT
-  - iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
-  - iptables -A INPUT -p tcp --dport 22 -j ACCEPT
-  - iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-  - iptables -A INPUT -p tcp --dport 443 -j ACCEPT
-  - iptables -A INPUT -p tcp --dport 6443 -j ACCEPT
-  - iptables -A INPUT -p tcp --dport 8080 -j ACCEPT
-  - iptables -A INPUT -p tcp --dport 10250 -j ACCEPT
-  - iptables -A INPUT -p udp --dport 41641 -j ACCEPT
-  - iptables -A INPUT -p icmp -j ACCEPT
-  # Allow Kubernetes/Cilium pod and service networks (insert to ensure before REJECT)
-  - iptables -I INPUT 1 -s 10.0.0.0/8 -j ACCEPT
-  - iptables -I INPUT 1 -s 10.42.0.0/16 -j ACCEPT
-  - iptables -I INPUT 1 -s 10.43.0.0/16 -j ACCEPT
+  # Configure iptables
+  # IMPORTANT: Use -I (insert) instead of -A (append) to add rules BEFORE
+  # OCI default REJECT rule. Rules inserted in reverse order (last -I is first rule).
+  - iptables -I INPUT 1 -i lo -j ACCEPT
+  - iptables -I INPUT 2 -m state --state ESTABLISHED,RELATED -j ACCEPT
+  - iptables -I INPUT 3 -s 10.0.0.0/8 -j ACCEPT
+  - iptables -I INPUT 4 -s 10.42.0.0/16 -j ACCEPT
+  - iptables -I INPUT 5 -s 10.43.0.0/16 -j ACCEPT
+  - iptables -I INPUT 6 -p tcp --dport 22 -j ACCEPT
+  - iptables -I INPUT 7 -p tcp --dport 80 -j ACCEPT
+  - iptables -I INPUT 8 -p tcp --dport 443 -j ACCEPT
+  - iptables -I INPUT 9 -p tcp --dport 6443 -j ACCEPT
+  - iptables -I INPUT 10 -p tcp --dport 8080 -j ACCEPT
+  - iptables -I INPUT 11 -p tcp --dport 10250 -j ACCEPT
+  - iptables -I INPUT 12 -p udp --dport 41641 -j ACCEPT
+  - iptables -I INPUT 13 -p icmp -j ACCEPT
   - iptables -A FORWARD -j ACCEPT
   - netfilter-persistent save 2>/dev/null || true
 

@@ -18,10 +18,19 @@ metadata:
 spec:
   gatewayClassName: cilium
   listeners:
-    # HTTP listener - for ACME HTTP-01 challenges and plain HTTP
+    # HTTP listener - for ACME HTTP-01 challenges and plain HTTP (generic)
     - name: http
       protocol: HTTP
       port: 80
+      allowedRoutes:
+        namespaces:
+          from: All
+    # HTTP listener for Grafana - required for cert-manager HTTP-01 challenges
+    # The ACME solver HTTPRoute attaches here due to hostname matching
+    - name: http-grafana
+      protocol: HTTP
+      port: 80
+      hostname: grafana.qualityspace.com
       allowedRoutes:
         namespaces:
           from: All

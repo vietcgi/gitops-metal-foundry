@@ -6,8 +6,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: smee
-      app.kubernetes.io/instance: tinkerbell
+      app: tinkerbell  # Based on actual pod labels, main tinkerbell pod has this
   namespaceSelector:
     matchNames:
     - tinkerbell
@@ -27,8 +26,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: tink-server
-      app.kubernetes.io/instance: tinkerbell
+      app: tinkerbell  # Based on actual pod labels
   namespaceSelector:
     matchNames:
     - tinkerbell
@@ -48,8 +46,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/name: hookos
-      app.kubernetes.io/instance: tinkerbell
+      app: hookos  # Based on actual pod labels: hookos-569c8c9df4-jdnwq has app: hookos
   namespaceSelector:
     matchNames:
     - tinkerbell

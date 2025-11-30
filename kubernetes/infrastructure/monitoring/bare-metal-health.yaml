@@ -7,7 +7,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app.kubernetes.io/instance: tinkerbell
+      app: tinkerbell  # Using the actual label from Tinkerbell pods
   namespaceSelector:
     matchNames:
     - tinkerbell
@@ -33,7 +33,7 @@ metadata:
 spec:
   selector:
     matchLabels:
-      app: tinkerbell-hegel
+      app: tinkerbell-hegel  # Using the actual label pattern
   namespaceSelector:
     matchNames:
     - tinkerbell

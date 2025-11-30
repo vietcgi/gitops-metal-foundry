@@ -24,7 +24,7 @@ spec:
         type: 'filesystem'
       schemaConfig:
         configs:
-          - from: "2024-04-01T00:00:00Z"
+          - from: "2024-04-01"
             store: tsdb
             object_store: filesystem
             schema: v13
@@ -56,6 +56,11 @@ spec:
       replicas: 0
     tableManager:
       replicas: 0
+    # Disable caches that are not appropriate for single binary
+    chunksCache:
+      enabled: false
+    resultsCache:
+      enabled: false
     monitoring:
       serviceMonitor:
         enabled: true

@@ -130,13 +130,9 @@ log "Adding Cilium Helm repository..."
 helm repo add cilium https://helm.cilium.io/
 helm repo update
 
-# Get the latest stable Cilium version from Helm repo (no --devel flag = stable only)
-# Run in subshell to isolate from pipefail
-CILIUM_VERSION=$(helm search repo cilium/cilium -o json 2>/dev/null | head -c 10000 | jq -r '.[0].version' 2>/dev/null) || true
-if [ -z "$CILIUM_VERSION" ] || [ "$CILIUM_VERSION" = "null" ]; then
-    log "Could not determine latest Cilium version, using fallback 1.18.4"
-    CILIUM_VERSION="1.18.4"
-fi
+# Pin Cilium version to match kubernetes/infrastructure/cilium/release.yaml
+# This ensures Flux won't need to upgrade/downgrade when it reconciles
+CILIUM_VERSION="1.18.4"
 log "Using Cilium version: $CILIUM_VERSION"
 
 # Install Gateway API CRDs BEFORE Cilium (required for Cilium's gateway controller to initialize)

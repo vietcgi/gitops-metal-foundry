@@ -3,5 +3,5 @@ kind: Kustomization
 resources:
   - gateway-api-crds
   - gateway.yaml
-  - certificate-grafana.yaml
+  # Certificate moved to infrastructure-config layer (depends on cert-manager CRDs)
   - release.yaml

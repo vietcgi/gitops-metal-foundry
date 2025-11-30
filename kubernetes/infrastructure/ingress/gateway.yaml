@@ -14,9 +14,6 @@ metadata:
   name: main-gateway
   namespace: ingress
 spec:
-  addresses:
-  - type: IPAddress
-    value: "10.0.1.11"
   gatewayClassName: cilium
   listeners:
     # HTTP listener - for ACME HTTP-01 challenges and plain HTTP

@@ -12,7 +12,7 @@ resources:
   - monitoring
   # NOTE: Cilium is installed via setup-cluster.sh (CNI must exist before Flux)
   # The cilium/ directory contains a HelmRelease for reference/day-2 upgrades
-  # - cilium
+  - cilium
   # Security
   - vault
   - gatekeeper

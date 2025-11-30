@@ -24,7 +24,7 @@ spec:
         type: 'filesystem'
       schemaConfig:
         configs:
-          - from: "2024-04-01"
+          - from: "2024-04-01T00:00:00Z"
             store: tsdb
             object_store: filesystem
             schema: v13

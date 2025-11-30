@@ -24,17 +24,19 @@ spec:
         namespaces:
           from: All
     # HTTPS listener for Grafana
-    # - name: https-grafana
-    #   protocol: HTTPS
-    #   port: 443
-    #   hostname: grafana.qualityspace.com
-    #   allowedRoutes:
-    #     namespaces:
-    #       from: All
-    #   tls:
-    #     mode: Terminate
-    #     certificateRefs:
-    #       - name: grafana-tls
+    - allowedRoutes:
+        namespaces:
+          from: All
+      hostname: grafana.qualityspace.com
+      name: https-grafana
+      port: 443
+      protocol: HTTPS
+      tls:
+        certificateRefs:
+        - group: ""
+          kind: Secret
+          name: grafana-tls
+        mode: Terminate
     # Harbor listener disabled - suspended due to ARM64 incompatibility
     # Re-enable when Harbor is running on x86_64
     # - name: https-harbor

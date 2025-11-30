@@ -70,7 +70,7 @@ spec:
         smee:
           # Disable DHCP - each site has its own DHCP server
           # Local DHCP configured to chainload iPXE from this URL
-          dhcpMode: "disabled"
+          dhcpEnabled: false
 
       resources:
         requests:

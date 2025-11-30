@@ -38,6 +38,9 @@ spec:
       protocol: HTTPS
       port: 443
       hostname: grafana.qualityspace.com
+      allowedRoutes:
+        namespaces:
+          from: All
       tls:
         mode: Terminate
         certificateRefs:

@@ -4,3 +4,4 @@ resources:
   # Post-install configs that depend on CRDs from infrastructure
   - cert-manager-config
   - certificates
+  - monitoring-config

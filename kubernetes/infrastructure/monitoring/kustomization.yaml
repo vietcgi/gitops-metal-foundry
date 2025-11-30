@@ -6,10 +6,7 @@ resources:
   - loki.yaml
   - tempo.yaml
   - jaeger.yaml
-  - tinkerbell-service-monitors.yaml
-  - tinkerbell-alerting-rules.yaml
+  # ServiceMonitor and PrometheusRule resources moved to infrastructure-config layer (depend on kube-prometheus-stack CRDs)
   - promtail-daemonset.yaml
   - promtail-config.yaml
   - grafana-dashboards.yaml
-  - network-monitoring.yaml
-  - bare-metal-health.yaml

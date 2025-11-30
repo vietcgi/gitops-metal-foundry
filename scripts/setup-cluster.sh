@@ -478,15 +478,61 @@ spec:
 EOF
 
     log "Waiting for Flux controllers..."
-    kubectl wait --for=condition=available --timeout=300s deployment/source-controller -n flux-system
-    kubectl wait --for=condition=available --timeout=300s deployment/kustomize-controller -n flux-system
-    kubectl wait --for=condition=available --timeout=300s deployment/helm-controller -n flux-system
-    kubectl wait --for=condition=available --timeout=300s deployment/notification-controller -n flux-system
+
+    # Check which Flux controllers exist (some may not be installed by default)
+    flux_controllers=("source-controller" "kustomize-controller" "helm-controller" "notification-controller")
+
+    # Add image-automation-controller if it exists
+    if kubectl get deployment image-automation-controller -n flux-system &>/dev/null; then
+        flux_controllers+=("image-automation-controller")
+        log "Found image-automation-controller, including in wait list"
+    fi
+
+    # Add image-reflector-controller if it exists
+    if kubectl get deployment image-reflector-controller -n flux-system &>/dev/null; then
+        flux_controllers+=("image-reflector-controller")
+        log "Found image-reflector-controller, including in wait list"
+    fi
+
+    # Wait for all available Flux controllers with proper error handling
+    all_controllers_ready=true
+    for controller in "${flux_controllers[@]}"; do
+        log "Waiting for $controller to be available..."
+        if ! kubectl wait --for=condition=available --timeout=300s deployment/$controller -n flux-system 2>/dev/null; then
+            log "ERROR: $controller failed to become available within timeout"
+            all_controllers_ready=false
+        else
+            log "✓ $controller is ready"
+        fi
+    done
+
+    if [ "$all_controllers_ready" != true ]; then
+        log "ERROR: Some Flux controllers failed to start. Check deployment status with: kubectl get deployments -n flux-system"
+        exit 1
+    fi
+
+    log "✓ All Flux controllers are ready"
 
     log "Triggering initial reconciliation..."
     sleep 5
-    flux reconcile source git flux-system
-    flux reconcile kustomization flux-system
+
+    # Reconcile Git source with error handling
+    if ! flux reconcile source git flux-system; then
+        log "ERROR: Failed to reconcile Git source"
+        exit 1
+    fi
+    log "✓ Git source reconciliation triggered"
+
+    # Reconcile root kustomization with error handling
+    if ! flux reconcile kustomization flux-system; then
+        log "ERROR: Failed to reconcile root kustomization"
+        exit 1
+    fi
+    log "✓ Root kustomization reconciliation triggered"
+
+    # Wait briefly for reconciliation to start before reporting status
+    sleep 10
+    log "Flux deployments initiated successfully"
 fi
 
 log "Flux is ready"

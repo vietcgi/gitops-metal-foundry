@@ -20,11 +20,12 @@ spec:
           - /lib/firmware:/lib/firmware:ro
         actions:
           - name: stream-ubuntu-image
-            image: quay.io/tinkerbell/actions/qemuimg2disk:latest
-            timeout: 1800
+            image: quay.io/tinkerbell/actions/image2disk:latest
+            timeout: 300
             environment:
               DEST_DISK: /dev/sda
-              IMG_URL: https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+              IMG_URL: https://hookos.qualityspace.com/noble.raw.gz
+              COMPRESSED: "true"
           - name: reboot
             image: quay.io/tinkerbell/actions/kexec:latest
             timeout: 90

@@ -81,6 +81,7 @@ spec:
           # Override grpc_authority via extra kernel args since publicIP must be an IP
           ipxeHttpScriptExtraKernelArgs:
             - "grpc_authority=tinkerbell.qualityspace.com:80"
+            - "tink_ssh_authorized_keys=c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFCQVFDNS9scmhIQVFkVFJmcHB6ZkE3RW1uL2hjU0hvYkVwbDZMek5Gc3hEOVBpMCtzUlQ4SzJzaGR3WjAydmsrZVpUM2NoaTZQd2Y1Q2I4Mi9OUzd5TGxxNGVVeEcvSUtwMUh4VktUZFRRZ0EzRTBIRi9tbXd2ZUNudVI1NWlVdk5ObGlSeVdiQm5ZL3V3NXlmaFZyREl5QXdQK3JFMTZNL1JPbG9yYnNrSjRSNmZGTXI0TTRvMlBqQUZMMktIKzFsbk1ydGJOb292cWc3L3hMQmhpREdoczZzTkhsNEUzNFBISUNrSDdYcWtoKzdUQ0RicGpER3hNdU5MNVJHMXpNRzFmTEZmSlgwUUlRYW5OMmpISlUyTkVNQlZXQitCeE5ZV0tXQUNIUWV2dWJFUjhLZHhrc0JqM05ld2k2NXp4MmVuRG9LTkU2a3B6aTJscVBkRHBVWHd3VmYga2V2aW4="
 
       resources:
         requests:

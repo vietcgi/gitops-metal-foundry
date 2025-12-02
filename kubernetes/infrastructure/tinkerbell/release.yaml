@@ -46,9 +46,10 @@ spec:
     trustedProxies:
       - "10.42.0.0/16"
 
-    # HookOS artifacts URL - served via Gateway API with HTTPS
-    # Uses hookos.qualityspace.com (DNS-only in Cloudflare, not proxied)
-    artifactsFileServer: "https://hookos.qualityspace.com"
+    # HookOS artifacts URL - served via Gateway API
+    # Uses HTTP because iPXE binary doesn't have HTTPS support compiled in
+    # hookos.qualityspace.com (DNS-only in Cloudflare, not proxied)
+    artifactsFileServer: "http://hookos.qualityspace.com"
 
     # Deployment configuration
     deployment:
@@ -68,10 +69,14 @@ spec:
           # Disable SSH bastion (secondstar)
           enableSecondstar: false
 
+
         smee:
-          # Disable DHCP - each site has its own DHCP server
-          # Local DHCP configured to chainload iPXE from this URL
-          dhcpEnabled: false
+          # Enable DHCP in reservation mode - centralized DHCP for all sites
+          # Smee assigns IPs based on Hardware CRD definitions (MAC-to-IP reservations)
+          # Sites access DHCP via Tailscale subnet routing or DHCP relay
+          dhcpEnabled: true
+          # DHCP mode: reservation (default) - requires Hardware records for all clients
+          # Alternative modes: proxy (external DHCP for IP, Smee for PXE) or auto-proxy
           # Enable HTTP iPXE script serving at /auto.ipxe
           httpIpxeScriptEnabled: true
           httpIpxeScriptUrl: "https://tinkerbell.qualityspace.com"
@@ -82,6 +87,7 @@ spec:
           ipxeHttpScriptExtraKernelArgs:
             - "grpc_authority=tinkerbell.qualityspace.com:80"
             - "tink_ssh_authorized_keys=c3NoLXJzYSBBQUFBQjNOemFDMXljMkVBQUFBREFRQUJBQUFCQVFDNS9scmhIQVFkVFJmcHB6ZkE3RW1uL2hjU0hvYkVwbDZMek5Gc3hEOVBpMCtzUlQ4SzJzaGR3WjAydmsrZVpUM2NoaTZQd2Y1Q2I4Mi9OUzd5TGxxNGVVeEcvSUtwMUh4VktUZFRRZ0EzRTBIRi9tbXd2ZUNudVI1NWlVdk5ObGlSeVdiQm5ZL3V3NXlmaFZyREl5QXdQK3JFMTZNL1JPbG9yYnNrSjRSNmZGTXI0TTRvMlBqQUZMMktIKzFsbk1ydGJOb292cWc3L3hMQmhpREdoczZzTkhsNEUzNFBISUNrSDdYcWtoKzdUQ0RicGpER3hNdU5MNVJHMXpNRzFmTEZmSlgwUUlRYW5OMmpISlUyTkVNQlZXQitCeE5ZV0tXQUNIUWV2dWJFUjhLZHhrc0JqM05ld2k2NXp4MmVuRG9LTkU2a3B6aTJscVBkRHBVWHd3VmYga2V2aW4="
+
 
       resources:
         requests:

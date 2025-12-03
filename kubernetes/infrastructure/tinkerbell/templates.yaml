@@ -118,23 +118,20 @@ spec:
               GID: "0"
               MODE: "0644"
               DIRMODE: "0755"
-          # Install GRUB for Legacy BIOS boot using cexec action
-          # cexec handles chroot, mounting, and DNS resolution properly
-          - name: install-grub
-            image: quay.io/tinkerbell/actions/cexec:latest
-            timeout: 300
-            environment:
-              BLOCK_DEVICE: /dev/sda1
-              FS_TYPE: ext4
-              CHROOT: "true"
-              UPDATE_RESOLV_CONF: "true"
-              DEFAULT_INTERPRETER: "/bin/sh -c"
-              CMD_LINE: "apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y grub-pc && grub-install --target=i386-pc /dev/sda && update-grub"
-          # Reboot into the installed OS
-          - name: reboot
-            image: quay.io/tinkerbell/actions/reboot:latest
+          # Kexec boots directly into installed OS kernel - bypasses BIOS/PXE entirely
+          # This is the correct solution since we use ISC DHCP (not Smee's DHCP)
+          # and Tinkerbell's allowPXE toggle doesn't affect our DHCP server
+          # NOTE: Ubuntu cloud images use sda16 for /boot (separate boot partition)
+          - name: kexec-into-os
+            image: quay.io/tinkerbell/actions/kexec:latest
             timeout: 90
             pid: host
+            environment:
+              BLOCK_DEVICE: /dev/sda16
+              FS_TYPE: ext4
+              KERNEL_PATH: /vmlinuz
+              INITRD_PATH: /initrd.img
+              CMD_LINE: "root=/dev/sda1 ro console=tty0 console=ttyS0,115200"
 ---
 # Ubuntu 24.04 LTS Installation Template for anvil (Dell R610)
 # Uses nsenter to refresh partition table after image2disk (fixes mount failures)

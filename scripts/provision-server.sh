@@ -11,8 +11,10 @@ if [ -z "$WORKFLOW_FILE" ]; then
 fi
 
 # Extract hardware name from workflow file
-WORKFLOW_NAME=$(grep -A 10 "kind: Workflow" "$WORKFLOW_FILE" | grep "name:" | head -n 1 | awk '{print $2}')
-HARDWARE_NAME=$(grep "hardwareRef:" "$WORKFLOW_FILE" | awk '{print $2}')
+# Handle multi-document YAML by splitting on --- and taking first document
+FIRST_DOC=$(awk '/^---/{if(NR>1)exit}1' "$WORKFLOW_FILE")
+WORKFLOW_NAME=$(echo "$FIRST_DOC" | grep -A 10 "kind: Workflow" | grep "name:" | head -n 1 | awk '{print $2}')
+HARDWARE_NAME=$(echo "$FIRST_DOC" | grep "hardwareRef:" | awk '{print $2}')
 
 echo "Workflow: $WORKFLOW_NAME"
 echo "Hardware: $HARDWARE_NAME"

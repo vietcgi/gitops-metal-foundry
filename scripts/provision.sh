@@ -26,6 +26,6 @@ echo "Provisioning $HARDWARE_NAME..."
 echo "Connecting to $OCI_SERVER..."
 
 # Run the provision script on the OCI server
-ssh "$OCI_SERVER" "cd $REPO_DIR && git pull && bash scripts/provision-server.sh $WORKFLOW_FILE"
+ssh "$OCI_SERVER" "cd $REPO_DIR && git pull && bash scripts/provision-server.sh $WORKFLOW_FILE $WORKFLOW_NAME"
 
 echo "Provisioning complete!"

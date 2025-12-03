@@ -4,6 +4,7 @@
 set -e
 
 WORKFLOW_FILE=$1
+WORKFLOW_NAME_ARG=$2  # Optional: specific workflow name to provision
 NAMESPACE="tink-system"
 FLUX_KUSTOMIZATION="infrastructure"
 
@@ -25,15 +26,25 @@ log_warn() { echo -e "${YELLOW}[WARNING]${NC} $1"; }
 log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
 
 if [ -z "$WORKFLOW_FILE" ]; then
-    echo "Usage: $0 <workflow-yaml-file>"
+    echo "Usage: $0 <workflow-yaml-file> [workflow-name]"
     exit 1
 fi
 
-# Extract hardware name from workflow file
-# Handle multi-document YAML by splitting on --- and taking first document
-FIRST_DOC=$(awk '/^---/{if(NR>1)exit}1' "$WORKFLOW_FILE")
-WORKFLOW_NAME=$(echo "$FIRST_DOC" | grep -A 10 "kind: Workflow" | grep "name:" | head -n 1 | awk '{print $2}')
-HARDWARE_NAME=$(echo "$FIRST_DOC" | grep "hardwareRef:" | awk '{print $2}')
+# Extract hardware name and workflow name
+if [ -n "$WORKFLOW_NAME_ARG" ]; then
+  # If workflow name provided as parameter, use it and get hardware from it
+  WORKFLOW_NAME="$WORKFLOW_NAME_ARG"
+  HARDWARE_NAME=$(kubectl get workflow "$WORKFLOW_NAME" -n "$NAMESPACE" -o jsonpath="{.spec.hardwareRef}" 2>/dev/null || echo "")
+  if [ -z "$HARDWARE_NAME" ]; then
+    log_error "Could not find workflow $WORKFLOW_NAME or extract hardwareRef"
+    exit 1
+  fi
+else
+  # Extract from first document in YAML file (legacy behavior)
+  FIRST_DOC=$(awk '/^---/{if(NR>1)exit}1' "$WORKFLOW_FILE")
+  WORKFLOW_NAME=$(echo "$FIRST_DOC" | grep -A 10 "kind: Workflow" | grep "name:" | head -n 1 | awk '{print $2}')
+  HARDWARE_NAME=$(echo "$FIRST_DOC" | grep "hardwareRef:" | awk '{print $2}')
+fi
 
 log_info "Workflow: $WORKFLOW_NAME"
 log_info "Hardware: $HARDWARE_NAME"

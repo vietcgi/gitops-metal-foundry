@@ -259,6 +259,13 @@ spec:
               GID: "0"
               MODE: "0644"
               DIRMODE: "0755"
+          # Install Broadcom bnx2 firmware for Dell R610 NICs
+          # The bnx2 driver is in the kernel, but requires firmware files from firmware-bnx2
+          - name: install-bnx2-firmware
+            image: justincormack/nsenter1
+            timeout: 180
+            pid: host
+            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "mount /dev/sda1 /mnt && mount --bind /dev /mnt/dev && mount --bind /proc /mnt/proc && mount --bind /sys /mnt/sys && chroot /mnt apt-get update && chroot /mnt apt-get install -y firmware-bnx2 && umount /mnt/sys /mnt/proc /mnt/dev /mnt"]
           # Install GRUB bootloader using cexec (chroot into root partition sda1)
           - name: install-grub
             image: quay.io/tinkerbell/actions/cexec:latest

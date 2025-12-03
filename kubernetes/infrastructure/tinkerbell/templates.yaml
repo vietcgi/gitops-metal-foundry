@@ -118,19 +118,11 @@ spec:
               GID: "0"
               MODE: "0644"
               DIRMODE: "0755"
-          # Kexec boots directly into installed OS kernel - bypasses BIOS/PXE entirely
-          # This is the correct solution since we use ISC DHCP (not Smee's DHCP)
-          # and Tinkerbell's allowPXE toggle doesn't affect our DHCP server
-          - name: kexec-into-os
-            image: quay.io/tinkerbell/actions/kexec:latest
+          # Reboot into the installed OS
+          - name: reboot
+            image: quay.io/tinkerbell/actions/reboot:latest
             timeout: 90
             pid: host
-            environment:
-              BLOCK_DEVICE: /dev/sda1
-              FS_TYPE: ext4
-              KERNEL_PATH: /boot/vmlinuz
-              INITRD_PATH: /boot/initrd.img
-              CMD_LINE: "root=/dev/sda1 ro console=tty0 console=ttyS0,115200"
 ---
 # Ubuntu 24.04 LTS Installation Template for anvil (Dell R610)
 # Uses nsenter to refresh partition table after image2disk (fixes mount failures)
@@ -253,13 +245,14 @@ spec:
           # Kexec boots directly into installed OS kernel - bypasses BIOS/PXE entirely
           # This is the correct solution since we use ISC DHCP (not Smee's DHCP)
           # and Tinkerbell's allowPXE toggle doesn't affect our DHCP server
+          # NOTE: Ubuntu cloud images use sda16 for /boot (separate boot partition)
           - name: kexec-into-os
             image: quay.io/tinkerbell/actions/kexec:latest
             timeout: 90
             pid: host
             environment:
-              BLOCK_DEVICE: /dev/sda1
+              BLOCK_DEVICE: /dev/sda16
               FS_TYPE: ext4
-              KERNEL_PATH: /boot/vmlinuz
-              INITRD_PATH: /boot/initrd.img
+              KERNEL_PATH: /vmlinuz
+              INITRD_PATH: /initrd.img
               CMD_LINE: "root=/dev/sda1 ro console=tty0 console=ttyS0,115200"

@@ -1,0 +1,129 @@
+apiVersion: tinkerbell.org/v1alpha1
+kind: Template
+metadata:
+  creationTimestamp: "2025-11-30T20:39:16Z"
+  generation: 34
+  labels:
+    kustomize.toolkit.fluxcd.io/name: infrastructure
+    kustomize.toolkit.fluxcd.io/namespace: flux-system
+  name: ubuntu-2404
+  namespace: tink-system
+  resourceVersion: "1059085"
+  uid: 26b2663a-56a5-4a3b-8cef-a25c85d8eee3
+spec:
+  data: |
+    version: "0.1"
+    name: ubuntu-2404
+    global_timeout: 1800
+    tasks:
+      - name: os-installation
+        worker: "{{.device_1}}"
+        volumes:
+          - /dev:/dev
+          - /dev/console:/dev/console
+          - /lib/firmware:/lib/firmware:ro
+        actions:
+          - name: stream-ubuntu-image
+            image: quay.io/tinkerbell/actions/image2disk:latest
+            timeout: 300
+            environment:
+              DEST_DISK: /dev/sda
+              IMG_URL: https://hookos.qualityspace.com/noble.raw.gz
+              COMPRESSED: "true"
+          # CRITICAL: Refresh partition table using nsenter to run in host mount namespace
+          # This fixes the issue where image2disk's BLKRRPART call fails silently
+          # Using justincormack/nsenter1 - a minimal image designed specifically for this purpose
+          - name: partition-refresh
+            image: justincormack/nsenter1
+            timeout: 60
+            pid: host
+            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "partprobe /dev/sda && sleep 2 && ls -la /dev/sda*"]
+          # Clear cloud-init state so it runs fresh on first boot with new instance-id/hostname
+          - name: reset-cloud-init-state
+            image: justincormack/nsenter1
+            timeout: 120
+            pid: host
+            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "mount /dev/sda1 /mnt && rm -rf /mnt/var/lib/cloud/instances/* /mnt/var/lib/cloud/instance /mnt/var/lib/cloud/data/* 2>/dev/null; rm -f /mnt/etc/machine-id && echo 'uninitialized' > /mnt/etc/machine-id && umount /mnt"]
+          - name: write-netplan
+            image: quay.io/tinkerbell/actions/writefile:latest
+            timeout: 90
+            environment:
+              DEST_DISK: /dev/sda1
+              FS_TYPE: ext4
+              DEST_PATH: /etc/netplan/50-cloud-init.yaml
+              CONTENTS: |
+                network:
+                  version: 2
+                  ethernets:
+                    ens160:
+                      dhcp4: false
+                      dhcp6: false
+                      addresses:
+                        - 108.181.38.85/27
+                      routes:
+                        - to: 0.0.0.0/0
+                          via: 108.181.38.65
+                      nameservers:
+                        addresses:
+                          - 8.8.8.8
+                          - 8.8.4.4
+              UID: "0"
+              GID: "0"
+              MODE: "0644"
+              DIRMODE: "0755"
+          - name: write-cloud-init-meta
+            image: quay.io/tinkerbell/actions/writefile:latest
+            timeout: 90
+            environment:
+              DEST_DISK: /dev/sda1
+              FS_TYPE: ext4
+              DEST_PATH: /var/lib/cloud/seed/nocloud/meta-data
+              CONTENTS: |
+                instance-id: {{.device_1}}
+                local-hostname: {{.hostname}}
+              UID: "0"
+              GID: "0"
+              MODE: "0644"
+              DIRMODE: "0755"
+          - name: write-cloud-init-user
+            image: quay.io/tinkerbell/actions/writefile:latest
+            timeout: 90
+            environment:
+              DEST_DISK: /dev/sda1
+              FS_TYPE: ext4
+              DEST_PATH: /var/lib/cloud/seed/nocloud/user-data
+              CONTENTS: |
+                #cloud-config
+                hostname: {{.hostname}}
+                manage_etc_hosts: true
+                users:
+                  - name: ubuntu
+                    sudo: ALL=(ALL) NOPASSWD:ALL
+                    shell: /bin/bash
+                    lock_passwd: false
+                    ssh_authorized_keys:
+                      - ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQC5/lrhHAQdTRfppzfA7Emn/hcSHobEpl6LzNFsxD9Pi0+sRT8K2shdwZ02vk+eZT3chi6Pwf5Cb82/NS7yLlq4eUxG/IKp1HxVKTdTQgA3E0HF/mmwveCnuR55iUvNNliRyWbBnY/uw5yfhVrDIyAwP+rE16M/ROlorbskJ4R6fFMr4M4o2PjAFL2KH+1lnMrtbNoovqg7/xLBhiDGhs6sNHl4E34PHICkH7Xqkh+7TCDbpjDGxMuNL5RG1zMG1fLFfJX0QIQanN2jHJU2NEMBVWB+BxNYWKWACHQevubER8KdxksBj3Newi65zx2enDoKNE6kpzi2lqPdDpUXwwVf kevin
+                chpasswd:
+                  list: |
+                    root:$6$6cUHnjJ1JvrwzVVL$9qXzyIVh1CgCIaLkSyadZ2gJeiofWZ0rAVUoPWQQPMMFW31Y2dmXToe3jzG3wZPnXh3gvv3EGZGxXh/mcvS.S1
+                    ubuntu:$6$6cUHnjJ1JvrwzVVL$9qXzyIVh1CgCIaLkSyadZ2gJeiofWZ0rAVUoPWQQPMMFW31Y2dmXToe3jzG3wZPnXh3gvv3EGZGxXh/mcvS.S1
+                  expire: false
+                ssh_pwauth: true
+                package_update: true
+                package_upgrade: true
+                packages:
+                  - qemu-guest-agent
+                  - curl
+                  - vim
+                runcmd:
+                  - systemctl enable qemu-guest-agent
+                  - systemctl start qemu-guest-agent
+              UID: "0"
+              GID: "0"
+              MODE: "0644"
+              DIRMODE: "0755"
+          # Reboot into the installed OS
+          - name: reboot
+            image: quay.io/tinkerbell/actions/reboot:latest
+            timeout: 90
+            pid: host

@@ -8,19 +8,28 @@ variable "tenancy_ocid" {
 }
 
 variable "user_ocid" {
-  description = "OCI User OCID"
+  description = "OCI User OCID (optional for local dev with CLI auth)"
   type        = string
+  default     = ""
 }
 
 variable "fingerprint" {
-  description = "OCI API Key fingerprint"
+  description = "OCI API Key fingerprint (optional for local dev with CLI auth)"
   type        = string
+  default     = ""
 }
 
 variable "private_key" {
-  description = "OCI API private key content"
+  description = "OCI API private key content (optional for local dev with CLI auth)"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "oci_config_profile" {
+  description = "OCI CLI config profile for local development"
+  type        = string
+  default     = "DEFAULT"
 }
 
 variable "region" {
@@ -176,4 +185,14 @@ variable "admin_source_cidr" {
   description = "CIDR allowed for K8s API access. Default allows anywhere - restrict in production!"
   type        = string
   default     = "0.0.0.0/0"
+}
+
+#=============================================================================
+# Budget Alerts
+#=============================================================================
+
+variable "budget_alert_threshold" {
+  description = "Alert when spending exceeds this amount in USD"
+  type        = number
+  default     = 1
 }

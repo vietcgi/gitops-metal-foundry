@@ -5,6 +5,14 @@
 # All resources are Always Free tier.
 #=============================================================================
 
+terraform {
+  required_providers {
+    oci = {
+      source = "oracle/oci"
+    }
+  }
+}
+
 #-----------------------------------------------------------------------------
 # VCN
 #-----------------------------------------------------------------------------
@@ -197,6 +205,32 @@ resource "oci_core_security_list" "public" {
     }
   }
 
+  # Ingress - Tinkerbell gRPC (restricted to colo subnet)
+  ingress_security_rules {
+    protocol    = "6" # TCP
+    source      = "108.181.38.64/27"
+    stateless   = false
+    description = "Tinkerbell gRPC - locked to colo /27"
+
+    tcp_options {
+      min = 42113
+      max = 42113
+    }
+  }
+
+  # Ingress - Smee HTTP (restricted to colo subnet)
+  ingress_security_rules {
+    protocol    = "6" # TCP
+    source      = "108.181.38.64/27"
+    stateless   = false
+    description = "Smee HTTP for iPXE - locked to colo /27"
+
+    tcp_options {
+      min = 7171
+      max = 7171
+    }
+  }
+
   freeform_tags = var.tags
 }
 
@@ -350,6 +384,38 @@ resource "oci_core_network_security_group_security_rule" "control_plane_tailscal
     destination_port_range {
       min = 41641
       max = 41641
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "control_plane_tinkerbell_grpc" {
+  network_security_group_id = oci_core_network_security_group.control_plane.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = "108.181.38.64/27"
+  source_type               = "CIDR_BLOCK"
+  description               = "Tinkerbell gRPC - locked to colo /27"
+
+  tcp_options {
+    destination_port_range {
+      min = 42113
+      max = 42113
+    }
+  }
+}
+
+resource "oci_core_network_security_group_security_rule" "control_plane_smee_http" {
+  network_security_group_id = oci_core_network_security_group.control_plane.id
+  direction                 = "INGRESS"
+  protocol                  = "6"
+  source                    = "108.181.38.64/27"
+  source_type               = "CIDR_BLOCK"
+  description               = "Smee HTTP for iPXE - locked to colo /27"
+
+  tcp_options {
+    destination_port_range {
+      min = 7171
+      max = 7171
     }
   }
 }

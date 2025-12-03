@@ -4,6 +4,17 @@
 # Creates the control plane VM using Always Free tier shapes only.
 #=============================================================================
 
+terraform {
+  required_providers {
+    oci = {
+      source = "oracle/oci"
+    }
+    cloudinit = {
+      source = "hashicorp/cloudinit"
+    }
+  }
+}
+
 locals {
   is_arm = var.shape == "VM.Standard.A1.Flex"
 }
@@ -65,9 +76,8 @@ resource "oci_core_instance" "control_plane" {
     user_data           = data.cloudinit_config.control_plane.rendered
   }
 
-  # Preserve boot volume on termination for data safety
-  # Set to true to prevent data loss on instance termination
-  preserve_boot_volume = true
+  # Delete boot volume on termination to avoid orphaned volumes
+  preserve_boot_volume = false
 
   freeform_tags = var.tags
 

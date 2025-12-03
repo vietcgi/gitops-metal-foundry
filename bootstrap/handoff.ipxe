@@ -1,0 +1,30 @@
+#!ipxe
+
+echo ====================================================
+echo   Colocation Bootstrapper: Handing off to OCI...
+echo ====================================================
+
+# 1. Define OCI Variables
+# REPLACE THIS with your OCI Tinkerbell Public IP or Hostname
+set tink_ip tinkerbell.qualityspace.com
+
+# 2. Set Critical Global Variables for HookOS
+# Without 'grpc_authority', HookOS will hang.
+set tink_server ${tink_ip}
+set grpc_authority ${tink_ip}:42113
+set tinkerbell_tls false
+
+# 3. Chainload to the OCI Smee server
+# If the chainload fails (e.g. 404 No Workflow), fall back to local boot
+chain http://${tink_ip}/ipxe/script/${mac}/auto.ipxe || goto local_boot
+
+:local_boot
+echo OCI Tinkerbell did not provide a boot script (No active workflow?).
+echo Booting from local disk...
+iseq ${platform} pcbios && goto bios_boot || goto uefi_boot
+
+:bios_boot
+sanboot --no-describe --drive 0x80 || exit
+
+:uefi_boot
+exit

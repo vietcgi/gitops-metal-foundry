@@ -120,3 +120,19 @@ module "iam" {
   create_policy  = false # Not needed - using API key auth from GitHub Actions
   tags           = local.common_tags
 }
+
+#=============================================================================
+# Budget Module - Cost Alerts
+#=============================================================================
+
+module "budget" {
+  source = "./modules/budget"
+
+  tenancy_id      = var.tenancy_ocid
+  compartment_id  = var.compartment_ocid
+  user_id         = var.user_ocid
+  project_name    = var.project_name
+  budget_amount   = var.budget_alert_threshold
+  alert_threshold = var.budget_alert_threshold
+  tags            = local.common_tags
+}

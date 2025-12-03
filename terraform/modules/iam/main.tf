@@ -7,6 +7,14 @@
 # This module creates policies for managing resources in the compartment.
 #=============================================================================
 
+terraform {
+  required_providers {
+    oci = {
+      source = "oracle/oci"
+    }
+  }
+}
+
 locals {
   # Policy statements for the compartment
   policy_statements = [

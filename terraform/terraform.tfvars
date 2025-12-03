@@ -3,6 +3,7 @@
 
 tenancy_ocid     = "ocid1.tenancy.oc1..aaaaaaaam3t36s4ld4jdjh657x3ecxtdu5csa7xxpcxtpql7dvx2mj473brq"
 compartment_ocid = "ocid1.compartment.oc1..aaaaaaaaw4u4o4nyw65ja6l3efpobp7sppe7io6d3tlvvfjicxnc4b3ie7ya"
+user_ocid        = "ocid1.user.oc1..aaaaaaaaiigprtijvh5ddzju467nds7deowc3p4c235mv4nzs3yc6ipdgpya"
 region           = "us-sanjose-1"
 
 # GitHub for OIDC (informational - auth via API key)

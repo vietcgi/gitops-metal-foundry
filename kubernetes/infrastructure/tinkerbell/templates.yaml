@@ -164,7 +164,7 @@ spec:
             environment:
               DEST_DISK: /dev/sda
               # Custom Ubuntu image with bnx2 firmware pre-installed
-              IMG_URL: http://170.9.8.103:8081/noble-bnx2.raw.gz
+              IMG_URL: http://108.181.38.67:8081/noble-bnx2.raw.gz
               COMPRESSED: "true"
           # CRITICAL: Refresh partition table using nsenter to run in host mount namespace
           - name: partition-refresh

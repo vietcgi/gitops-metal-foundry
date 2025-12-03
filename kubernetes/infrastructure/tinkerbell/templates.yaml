@@ -118,6 +118,22 @@ spec:
               GID: "0"
               MODE: "0644"
               DIRMODE: "0755"
+          - name: install-grub
+            image: alpine:latest
+            timeout: 300
+            command:
+              - /bin/sh
+              - -c
+              - |
+                mount /dev/sda1 /mnt
+                mount -t proc proc /mnt/proc
+                mount -t sysfs sys /mnt/sys
+                mount -o bind /dev /mnt/dev
+                chroot /mnt grub-install /dev/sda
+                chroot /mnt update-grub
+                umount -R /mnt
+            volumes:
+              - /dev:/dev
           # Reboot into the installed OS
           - name: reboot
             image: quay.io/tinkerbell/actions/reboot:latest

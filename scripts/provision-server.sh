@@ -125,14 +125,28 @@ while true; do
 
     # Workflow completed successfully (cexec reports success before reboot terminates HookOS)
     if [ "$STATE" == "SUCCESS" ]; then
-        log_success "Workflow completed with SUCCESS - moving to phase 2"
+        log_success "Workflow completed with SUCCESS"
+        # Disable PXE immediately to prevent re-provisioning loop on next reboot
+        log_info "Disabling PXE boot to prevent re-provisioning loop..."
+        kubectl patch hardware "$HARDWARE_NAME" -n "$NAMESPACE" --type=json -p='[
+          {"op": "replace", "path": "/spec/interfaces/0/netboot/allowPXE", "value": false},
+          {"op": "replace", "path": "/spec/interfaces/0/netboot/allowWorkflow", "value": false}
+        ]'
+        log_success "PXE disabled - server will boot from disk"
         break
     fi
 
     # Check if we've reached final boot step (reboot-into-os or kexec action)
     # Only match exact action names that terminate HookOS
     if [ "$STATE" == "RUNNING" ] && [[ "$CURRENT_ACTION" == "reboot-into-os" || "$CURRENT_ACTION" == *"kexec"* ]]; then
-        log_success "Boot action detected ($CURRENT_ACTION) - moving to phase 2"
+        log_success "Boot action detected ($CURRENT_ACTION)"
+        # CRITICAL: Disable PXE NOW before the reboot happens, otherwise server will PXE boot back to HookOS
+        log_info "Disabling PXE boot BEFORE reboot to prevent re-provisioning loop..."
+        kubectl patch hardware "$HARDWARE_NAME" -n "$NAMESPACE" --type=json -p='[
+          {"op": "replace", "path": "/spec/interfaces/0/netboot/allowPXE", "value": false},
+          {"op": "replace", "path": "/spec/interfaces/0/netboot/allowWorkflow", "value": false}
+        ]'
+        log_success "PXE disabled - server will boot from disk after reboot"
         break
     fi
 
@@ -142,6 +156,7 @@ done
 
 # ============================================================================
 # PHASE 2: Wait for server to go OFFLINE (reboot terminates HookOS)
+# PXE is already disabled at this point, so server will boot from disk
 # ============================================================================
 log_info "Phase 2: Waiting for server to go offline (reboot terminating HookOS)..."
 

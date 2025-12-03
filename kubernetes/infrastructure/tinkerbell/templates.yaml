@@ -163,8 +163,8 @@ spec:
             timeout: 600
             environment:
               DEST_DISK: /dev/sda
-              # Use existing Ubuntu image from colocation (has full bnx2 firmware)
-              IMG_URL: http://108.181.38.67:8081/noble.raw.gz
+              # Custom Ubuntu image with bnx2 firmware pre-installed
+              IMG_URL: http://108.181.38.67:8081/noble-bnx2.raw.gz
               COMPRESSED: "true"
           # CRITICAL: Refresh partition table using nsenter to run in host mount namespace
           - name: partition-refresh

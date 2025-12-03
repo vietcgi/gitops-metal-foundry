@@ -118,22 +118,42 @@ spec:
               GID: "0"
               MODE: "0644"
               DIRMODE: "0755"
+          # Install GRUB for Legacy BIOS boot (GPT partition table with BIOS boot partition)
+          # Uses nsenter to run in host namespace where device access works properly
           - name: install-grub
-            image: alpine:latest
+            image: justincormack/nsenter1
             timeout: 300
+            pid: host
             command:
+              - /usr/bin/nsenter
+              - "-t"
+              - "1"
+              - "-m"
+              - "-u"
+              - "-i"
+              - "-n"
+              - "--"
               - /bin/sh
               - -c
               - |
+                set -ex
+                # Mount the root filesystem
                 mount /dev/sda1 /mnt
+                # Bind mount required filesystems for chroot
                 mount -t proc proc /mnt/proc
                 mount -t sysfs sys /mnt/sys
-                mount -o bind /dev /mnt/dev
-                chroot /mnt grub-install /dev/sda
+                mount --bind /dev /mnt/dev
+                mount --bind /dev/pts /mnt/dev/pts
+                # Install GRUB for Legacy BIOS (i386-pc target) to MBR
+                chroot /mnt grub-install --target=i386-pc /dev/sda
                 chroot /mnt update-grub
-                umount -R /mnt
-            volumes:
-              - /dev:/dev
+                # Cleanup
+                umount /mnt/dev/pts
+                umount /mnt/dev
+                umount /mnt/sys
+                umount /mnt/proc
+                umount /mnt
+                echo "GRUB installed successfully for Legacy BIOS"
           # Reboot into the installed OS
           - name: reboot
             image: quay.io/tinkerbell/actions/reboot:latest

@@ -124,11 +124,12 @@ spec:
           # Install GRUB bootloader for UEFI using nsenter (mount EFI partition first)
           # Ubuntu cloud images use sda15 for EFI System Partition
           # --removable installs to /EFI/BOOT/BOOTX64.EFI (UEFI fallback path)
+          # IMPORTANT: Must create /boot/efi directory - Ubuntu cloud images have empty /boot
           - name: install-grub-uefi
             image: justincormack/nsenter1
             timeout: 120
             pid: host
-            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "mount /dev/sda1 /mnt && mount /dev/sda15 /mnt/boot/efi && mount --bind /dev /mnt/dev && mount --bind /proc /mnt/proc && mount --bind /sys /mnt/sys && chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable && chroot /mnt update-grub && umount /mnt/sys /mnt/proc /mnt/dev /mnt/boot/efi /mnt"]
+            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "mount /dev/sda1 /mnt && mkdir -p /mnt/boot/efi && mount /dev/sda15 /mnt/boot/efi && mount --bind /dev /mnt/dev && mount --bind /proc /mnt/proc && mount --bind /sys /mnt/sys && chroot /mnt grub-install --target=x86_64-efi --efi-directory=/boot/efi --removable && chroot /mnt update-grub && umount /mnt/sys /mnt/proc /mnt/dev /mnt/boot/efi /mnt"]
           # Reboot using nsenter (host namespace) - actually reboots the machine
           # This action won't complete because reboot terminates HookOS, but workflow already SUCCESS
           - name: reboot-into-os

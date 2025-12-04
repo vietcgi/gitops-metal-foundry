@@ -318,12 +318,12 @@ spec:
             timeout: 120
             pid: host
             command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "apk add --no-cache kexec-tools && kexec --version"]
-          # Download Harvester kernel and initrd
+          # Download Harvester kernel and initrd (custom initrd with bnx2 firmware for Dell R610)
           - name: download-harvester-files
             image: justincormack/nsenter1
             timeout: 600
             pid: host
-            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "mkdir -p /tmp/harvester && cd /tmp/harvester && wget -q http://108.181.38.67:8081/harvester/harvester-v1.6.1-vmlinuz-amd64 -O vmlinuz && wget -q http://108.181.38.67:8081/harvester/harvester-v1.6.1-initrd-amd64 -O initrd && echo 'Downloaded:' && ls -la /tmp/harvester/"]
+            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "mkdir -p /tmp/harvester && cd /tmp/harvester && wget -q http://108.181.38.67:8081/harvester/harvester-v1.6.1-vmlinuz-amd64 -O vmlinuz && wget -q http://108.181.38.67:8081/harvester/harvester-v1.6.1-initrd-bnx2-amd64 -O initrd && echo 'Downloaded:' && ls -la /tmp/harvester/"]
           # Kexec into Harvester installer
           # The kernel cmdline tells Harvester where to get rootfs and config
           - name: kexec-harvester

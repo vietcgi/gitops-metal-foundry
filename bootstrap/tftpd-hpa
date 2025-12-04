@@ -1,6 +1,8 @@
 # /etc/default/tftpd-hpa
+# Note: --refuse blksize/tsize helps with older BIOS PXE clients (e.g., Dell R610)
+# that don't properly negotiate TFTP options
 
 TFTP_USERNAME="tftp"
 TFTP_DIRECTORY="/srv/tftp"
 TFTP_ADDRESS=":69"
-TFTP_OPTIONS="--secure"
+TFTP_OPTIONS="--secure --retransmit 5000000 --refuse blksize --refuse tsize"

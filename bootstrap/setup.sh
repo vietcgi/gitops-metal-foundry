@@ -7,9 +7,9 @@ set -e
 echo "Starting Colocation Bootstrapper Setup..."
 
 # 1. Install Dependencies
-echo "Installing ISC-DHCP, TFTP, and Nginx..."
+echo "Installing ISC-DHCP, TFTP, Nginx, and build tools..."
 sudo apt-get update
-sudo apt-get install -y isc-dhcp-server tftpd-hpa nginx wget
+sudo apt-get install -y isc-dhcp-server tftpd-hpa nginx wget git build-essential liblzma-dev
 
 # 2. Deploy ISC-DHCP Config
 echo "Configuring ISC-DHCP..."
@@ -23,17 +23,45 @@ echo "Configuring TFTP..."
 sudo cp tftpd-hpa /etc/default/tftpd-hpa
 sudo systemctl restart tftpd-hpa
 
-# 4. Download iPXE Binaries
-echo "Downloading iPXE binaries..."
+# 4. Download/Build iPXE Binaries
+echo "Setting up iPXE binaries..."
 sudo mkdir -p /srv/tftp
-cd /srv/tftp
-if [ ! -f ipxe.efi ]; then
-    sudo wget http://boot.ipxe.org/ipxe.efi
+
+# Download ipxe.efi for UEFI systems
+if [ ! -f /srv/tftp/ipxe.efi ]; then
+    echo "Downloading ipxe.efi..."
+    sudo wget -O /srv/tftp/ipxe.efi http://boot.ipxe.org/ipxe.efi
 fi
-if [ ! -f undionly.kpxe ]; then
-    sudo wget http://boot.ipxe.org/undionly.kpxe
-fi
+
+# Build undionly-embedded.kpxe with static IP fallback for BIOS systems
+# This is needed for Dell R610 (Broadcom bnx2) which has buggy UNDI driver
+echo "Building undionly-embedded.kpxe with static IP fallback..."
+IPXE_BUILD_DIR="/tmp/ipxe-build-$$"
+git clone --depth 1 https://github.com/ipxe/ipxe.git "$IPXE_BUILD_DIR"
+
+# Create embedded script with DHCP + static IP fallback
+cat > "$IPXE_BUILD_DIR/embed.ipxe" << 'IPXESCRIPT'
+#!ipxe
+dhcp || echo DHCP failed, using static config
+isset ${ip} || set ip 108.181.38.87
+isset ${netmask} || set netmask 255.255.255.224
+isset ${gateway} || set gateway 108.181.38.65
+isset ${dns} || set dns 8.8.8.8
+
+ifopen net0
+
+echo Chainloading to Tinkerbell...
+chain http://108.181.38.67:8080/handoff.ipxe || shell
+IPXESCRIPT
+
+cd "$IPXE_BUILD_DIR/src"
+make bin/undionly.kpxe EMBED="$IPXE_BUILD_DIR/embed.ipxe"
+sudo cp bin/undionly.kpxe /srv/tftp/undionly-embedded.kpxe
 cd -
+rm -rf "$IPXE_BUILD_DIR"
+
+echo "iPXE binaries ready:"
+ls -la /srv/tftp/*.efi /srv/tftp/*.kpxe 2>/dev/null || true
 
 # 5. Deploy Nginx Config and Handoff Script
 echo "Configuring Nginx..."

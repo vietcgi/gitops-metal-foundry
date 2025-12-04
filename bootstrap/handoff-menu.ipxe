@@ -1,0 +1,40 @@
+#!ipxe
+# Boot Menu for Colocation Servers
+# Choose OS at PXE boot time - no DHCP changes needed
+
+:start
+menu Colocation PXE Boot Menu
+item --gap --             ---- Operating Systems ----
+item harvester            Harvester HCI v1.6.1 (wipes disk!)
+item tinkerbell           Ubuntu via Tinkerbell
+item --gap --             ---- Other Options ----
+item local                Boot from local disk
+item shell                Drop to iPXE shell
+choose --timeout 30000 --default local selected || goto local
+goto ${selected}
+
+:harvester
+echo Booting Harvester installer...
+chain http://108.181.38.67:8081/harvester/harvester.ipxe || goto failed
+
+:tinkerbell
+echo Handing off to Tinkerbell...
+set tink_ip tinkerbell.qualityspace.com
+set tink_server ${tink_ip}
+set grpc_authority ${tink_ip}:42113
+set tinkerbell_tls false
+chain http://${tink_ip}/ipxe/script/${mac}/auto.ipxe || goto local
+
+:local
+echo Booting from local disk...
+iseq ${platform} pcbios && sanboot --no-describe --drive 0x80 || exit
+
+:shell
+echo Dropping to iPXE shell. Type 'exit' to return to menu.
+shell
+goto start
+
+:failed
+echo Boot failed! Returning to menu in 5 seconds...
+sleep 5
+goto start

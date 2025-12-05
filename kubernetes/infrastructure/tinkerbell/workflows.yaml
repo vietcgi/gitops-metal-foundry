@@ -15,14 +15,15 @@ spec:
   bootOptions:
     toggleAllowNetboot: true
 ---
-# Workflow for anvil (Dell R610) Harvester HCI installation
+# Workflow for anvil (Dell R610) Talos Linux installation
+# Talos is a minimal, immutable Kubernetes OS
 apiVersion: tinkerbell.org/v1alpha1
 kind: Workflow
 metadata:
-  name: harvester
+  name: anvil-talos
   namespace: tink-system
 spec:
-  templateRef: harvester
+  templateRef: talos
   hardwareRef: anvil
   hardwareMap:
     device_1: 00:21:9b:a1:dc:c0

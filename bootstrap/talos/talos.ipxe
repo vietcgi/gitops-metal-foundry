@@ -1,0 +1,30 @@
+#!ipxe
+# Talos Linux PXE Boot Script for Dell R610 (BIOS)
+# This script boots Talos installer with machine config
+
+set talos_version v1.11.5
+set base_url http://108.181.38.67:8081/talos
+set config_url ${base_url}/controlplane.yaml
+
+echo ====================================================
+echo   Talos Linux ${talos_version} PXE Boot (BIOS)
+echo ====================================================
+echo
+echo Loading Talos kernel and initramfs...
+echo   Config URL: ${config_url}
+echo
+
+# Load kernel with all parameters on single line (iPXE doesn't support line continuation)
+# Parameters:
+#   - talos.platform=metal: Bare metal installation
+#   - talos.config: URL to machine configuration
+#   - net.ifnames=0 biosdevname=0: Use eth0 naming for Dell R610 Broadcom NICs
+#   - console=tty0 console=ttyS1,115200n8: VGA + serial console for IPMI SOL
+#   - init_on_alloc=1 slab_nomerge pti=on: Security hardening
+kernel ${base_url}/vmlinuz-amd64 talos.platform=metal talos.config=${config_url} net.ifnames=0 biosdevname=0 console=tty0 console=ttyS1,115200n8 init_on_alloc=1 slab_nomerge pti=on initrd=initramfs-amd64.xz
+
+initrd ${base_url}/initramfs-amd64.xz
+
+echo
+echo Booting Talos Linux...
+boot

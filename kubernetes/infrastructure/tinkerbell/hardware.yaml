@@ -50,7 +50,6 @@ spec:
         uefi: false
       netboot:
         allowPXE: false
-        allowWorkflow: false
       disableDhcp: false
   metadata:
     facility:

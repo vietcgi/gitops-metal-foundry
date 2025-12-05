@@ -312,12 +312,13 @@ spec:
           - /dev/console:/dev/console
           - /lib/firmware:/lib/firmware:ro
         actions:
-          # Install kexec-tools (not included in HookOS by default)
+          # Install kexec-tools using Alpine apk (HookOS is Alpine-based)
+          # Must use full path /sbin/apk since nsenter may not have /sbin in PATH
           - name: install-kexec-tools
             image: justincormack/nsenter1
             timeout: 120
             pid: host
-            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "apk add --no-cache kexec-tools && kexec --version"]
+            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "/sbin/apk add --no-cache kexec-tools && /usr/sbin/kexec --version"]
           # Download Harvester kernel and initrd (custom initrd with bnx2 firmware for Dell R610)
           - name: download-harvester-files
             image: justincormack/nsenter1
@@ -333,4 +334,4 @@ spec:
             image: justincormack/nsenter1
             timeout: 60
             pid: host
-            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "kexec -l /tmp/harvester/vmlinuz --initrd=/tmp/harvester/initrd --command-line='ip=108.181.38.87::108.181.38.65:255.255.255.224:anvil:eth0:none rd.cos.disable rd.noverifyssl console=tty1 root=live:http://108.181.38.67:8081/harvester/harvester-v1.6.1-rootfs-amd64.squashfs harvester.install.automatic=true harvester.install.config_url=http://108.181.38.67:8081/harvester/config-create.yaml harvester.install.skipchecks=true' && kexec -e"]
+            command: ["/usr/bin/nsenter", "-t", "1", "-m", "-u", "-i", "-n", "--", "/bin/sh", "-c", "kexec -l /tmp/harvester/vmlinuz --initrd=/tmp/harvester/initrd --command-line='ip=108.181.38.87::108.181.38.65:255.255.255.224:anvil:eth0:none rd.cos.disable rd.noverifyssl console=tty1 root=live:http://108.181.38.67:8081/harvester/harvester-v1.6.1-rootfs-bnx2-amd64.squashfs harvester.install.automatic=true harvester.install.config_url=http://108.181.38.67:8081/harvester/config-create.yaml harvester.install.skipchecks=true' && kexec -e"]
